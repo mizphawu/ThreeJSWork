@@ -1,0 +1,149 @@
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #18202c;
+}
+
+#game-container {
+  width: 100vw;
+  height: 100vh;
+}
+
+canvas {
+  display: block;
+}
+
+#game-ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  color: white;
+}
+
+#timer {
+  position: absolute;
+  top: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 48px;
+  font-weight: 900;
+  background: #202c3d;
+  padding: 10px 35px;
+  border: 3px solid white;
+  border-radius: 15px;
+}
+
+#countdown {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 65px;
+  font-weight: 900;
+  text-shadow: 3px 3px 10px black;
+}
+
+#scores {
+  position: absolute;
+  top: 25px;
+  left: 25px;
+  padding: 18px;
+  background: rgba(20, 30, 45, 0.9);
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 2;
+}
+
+#instructions {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 30, 45, 0.9);
+  padding: 12px 25px;
+  border-radius: 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+#podium {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 10, 20, 0.95);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 30px;
+  pointer-events: auto;
+}
+
+#podium.hidden {
+  display: none;
+}
+
+#podium h1 {
+  font-size: 48px;
+  color: #ffcf45;
+}
+
+#podium-content {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 15px;
+}
+
+.rank {
+  text-align: center;
+  padding: 25px;
+  min-width: 170px;
+  border-radius: 15px;
+  background: #29374b;
+}
+
+.rank h2 {
+  margin-bottom: 20px;
+}
+
+.rank h3 {
+  margin-bottom: 10px;
+}
+
+.rank-1 {
+  min-height: 210px;
+  background: #a77b20;
+}
+
+.rank-2 {
+  min-height: 170px;
+  background: #64748b;
+}
+
+.rank-3 {
+  min-height: 140px;
+  background: #925d3b;
+}
+
+#restart {
+  padding: 15px 40px;
+  border: none;
+  border-radius: 10px;
+  background: #ffbd35;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#restart:hover {
+  background: #ffe08a;
+}
