@@ -1,4 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { supabase } from './supabaseClient.js';
 import { initMenu } from './menu.js';
 import './style.css';
 import * as THREE from 'three';
@@ -97,6 +98,11 @@ ui.innerHTML = `
             <input id="create-player-color" name="playerColor" type="color" value="#ff5252"
                    class="form-control form-control-color form-control-lg w-100 rounded-pill border-2"
                    aria-label="Choose your player and cone color">
+          </div>
+          <div class="col-12">
+            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-avatar">Avatar (optional)</label>
+            <input id="create-player-avatar" name="avatar" type="file" accept="image/*"
+                   class="form-control rounded-pill border-2">
           </div>
           <div class="col-12">
             <button type="submit" class="btn btn-warning btn-lg fw-bold w-100 rounded-pill text-uppercase btn-pop">
@@ -776,7 +782,12 @@ function escapeHtml(value) {
 
 function withLobbyError(action) {
   try {
-    action();
+    const result = action();
+    if (result && typeof result.catch === 'function') {
+      result.catch(error => {
+        showLobbyMessage(`Couldn't update the lobby: ${error.message}`, true);
+      });
+    }
   } catch (error) {
     showLobbyMessage(`Couldn't update the lobby: ${error.message}`, true);
   }
@@ -819,6 +830,10 @@ function renderLobby() {
                      placeholder="Username to join"
                      aria-label="Username to join ${escapeHtml(room.name)}" required>
             </div>
+            <div class="col-12 col-sm">
+              <input name="avatar" type="file" accept="image/*" class="form-control rounded-pill border-2"
+                     aria-label="Optional avatar image">
+            </div>
             <div class="col-auto">
               <input name="playerColor" type="color" value="${defaultPlayerColor(room.players)}"
                      class="form-control form-control-color rounded-pill border-2"
@@ -842,32 +857,100 @@ function renderLobby() {
         No rooms yet. Create one to get started!
       </div>`;
 
-    const history = readHistory();
-    historyList.innerHTML = history.length ? history.slice(0, 10).map(match => `
+    void renderMatchHistory();
+  });
+}
+
+let historyRequestId = 0;
+let historyFetchFailed = false;
+
+async function fetchMatchHistoryWithJoin() {
+  const { data, error } = await supabase
+    .from('matches')
+    .select(`
+      id,
+      room_name,
+      total_rounds,
+      ended_at,
+      match_participants (
+        round_wins,
+        is_winner,
+        players (
+          username,
+          favorite_color,
+          avatar_url
+        )
+      )
+    `)
+    .eq('status', 'completed')
+    .order('ended_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    historyFetchFailed = true;
+    showLobbyMessage(`Failed to load history: ${error.message}`, true);
+    return [];
+  }
+  return data;
+}
+
+async function renderMatchHistory() {
+  const requestId = ++historyRequestId;
+  historyFetchFailed = false;
+
+  try {
+    const matches = await fetchMatchHistoryWithJoin();
+    if (requestId !== historyRequestId) return;
+    historyList.innerHTML = matches.length ? matches.map(match => `
       <div class="card border-0 border-start border-5 border-primary rounded-4 shadow-sm">
         <div class="card-body py-3">
           <div class="d-flex justify-content-between flex-wrap gap-2">
-            <h3 class="h6 fw-bolder mb-0">👑- ${escapeHtml(match.roomName)}</h3>
-            <small class="text-body-secondary">${escapeHtml(new Date(match.endedAt).toLocaleString())}</small>
+            <h3 class="h6 fw-bolder mb-0">👑- ${escapeHtml(match.room_name)}</h3>
+            <small class="text-body-secondary">${escapeHtml(new Date(match.ended_at).toLocaleString())}</small>
           </div>
-          <div class="small text-body-secondary mb-2">
-            ${escapeHtml(match.result)} · Finished in round ${match.round}
-          </div>
+          <div class="small text-body-secondary mb-2">Finished in ${match.total_rounds} rounds</div>
           <div class="d-flex flex-wrap gap-2">
-            ${match.players.map((player, index) => `
-              <span class="badge rounded-pill fs-6 fw-semibold d-inline-flex align-items-center gap-1 text-white"
-                    style="background:${getPlayerColor(player, index)}; text-shadow: 0 1px 2px rgba(0,0,0,.5)">
-                ${index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                ${escapeHtml(player.name)}: ${player.score} round wins
-              </span>`).join('')}
+            ${(match.match_participants ?? []).map(participant => {
+              const player = participant.players;
+              if (!player) return '';
+              const color = /^#[\da-f]{6}$/i.test(player.favorite_color)
+                ? player.favorite_color
+                : '#495057';
+              return `
+                <span class="badge rounded-pill fs-6 fw-semibold d-inline-flex align-items-center gap-1 text-white"
+                      style="background:${escapeHtml(color)}; text-shadow: 0 1px 2px rgba(0,0,0,.5)">
+                  ${player.avatar_url
+                    ? `<img src="${escapeHtml(player.avatar_url)}" width="24" height="24" alt="" class="rounded-circle">`
+                    : ''}
+                  ${participant.is_winner ? '🥇' : ''}
+                  ${escapeHtml(player.username)}: ${participant.round_wins} round wins
+                </span>`;
+            }).join('')}
           </div>
+          <button type="button" class="delete-match btn btn-sm btn-outline-danger rounded-pill mt-2"
+                  data-match-id="${escapeHtml(match.id)}">Delete</button>
         </div>
       </div>
     `).join('') : `
       <div class="text-center text-body-secondary bg-body-tertiary rounded-4 py-3">
-        🏆 Completed matches will show up here.
+        ${historyFetchFailed ? 'Match history could not be loaded.' : '🏆 Completed matches will show up here.'}
       </div>`;
-  });
+  } catch (error) {
+    if (requestId !== historyRequestId) return;
+    historyFetchFailed = true;
+    historyList.innerHTML = `
+      <div class="text-center text-body-secondary bg-body-tertiary rounded-4 py-3">
+        Match history could not be loaded.
+      </div>`;
+    showLobbyMessage(`Failed to load history: ${error.message}`, true);
+  }
+}
+
+async function deleteMatchRecord(matchId) {
+  const { error } = await supabase.from('matches').delete().eq('id', matchId);
+  if (error) throw error;
+  showLobbyMessage('Match deleted.');
+  await renderMatchHistory();
 }
 
 function makeId() {
@@ -905,14 +988,53 @@ function validateName(value, label) {
   return name;
 }
 
+async function registerPlayerWithAvatar(username, color, avatarFile) {
+  let avatarUrl = null;
+
+  if (avatarFile && avatarFile.size > 0) {
+    if (!avatarFile.type.startsWith('image/')) {
+      throw new Error('Choose a valid image file for the avatar.');
+    }
+    const fileExt = avatarFile.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, avatarFile);
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+    avatarUrl = data.publicUrl;
+  }
+
+  const { data: player, error } = await supabase
+    .from('players')
+    .upsert(
+      { username, favorite_color: color, ...(avatarUrl && { avatar_url: avatarUrl }) },
+      { onConflict: 'username' }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return player;
+}
+
 document.querySelector('#create-room-form').addEventListener('submit', event => {
   event.preventDefault();
-  withLobbyError(() => {
-    const form = new FormData(event.currentTarget);
+  const roomForm = event.currentTarget;
+  withLobbyError(async () => {
+    const form = new FormData(roomForm);
     const roomName = validateName(form.get('roomName'), 'Room name');
     const playerName = validateName(form.get('playerName'), 'Username');
     const playerColor = validateColor(form.get('playerColor'));
     if (playerName.length > 16) throw new Error('Username must be 16 characters or fewer.');
+    const playerRecord = await registerPlayerWithAvatar(
+      playerName,
+      playerColor,
+      form.get('avatar')
+    );
 
     const rooms = readRooms();
     rooms.push({
@@ -920,10 +1042,17 @@ document.querySelector('#create-room-form').addEventListener('submit', event => 
       name: roomName,
       status: 'waiting',
       createdAt: new Date().toISOString(),
-      players: [{ id: makeId(), name: playerName, color: playerColor, score: 0 }]
+      players: [{
+        id: makeId(),
+        dbId: playerRecord.id,
+        avatarUrl: playerRecord.avatar_url ?? null,
+        name: playerName,
+        color: playerColor,
+        score: 0
+      }]
     });
     writeRooms(rooms);
-    event.currentTarget.reset();
+    roomForm.reset();
     showLobbyMessage(`Room "${roomName}" created.`);
     renderLobby();
   });
@@ -932,26 +1061,54 @@ document.querySelector('#create-room-form').addEventListener('submit', event => 
 roomList.addEventListener('submit', event => {
   if (!event.target.matches('.join-room-form')) return;
   event.preventDefault();
-  withLobbyError(() => {
+  const joinForm = event.target;
+  withLobbyError(async () => {
     const roomId = event.target.dataset.roomId;
-    const form = new FormData(event.target);
+    const form = new FormData(joinForm);
     const playerName = validateName(form.get('playerName'), 'Username');
     const playerColor = validateColor(form.get('playerColor'));
     if (playerName.length > 16) throw new Error('Username must be 16 characters or fewer.');
 
-    const rooms = readRooms();
-    const room = rooms.find(item => item.id === roomId && item.status === 'waiting');
+    let rooms = readRooms();
+    let room = rooms.find(item => item.id === roomId && item.status === 'waiting');
     if (!room) throw new Error('That room is no longer available.');
     if (room.players.length >= MAX_PLAYERS) throw new Error('That room is full.');
     if (room.players.some(player => player.name.toLowerCase() === playerName.toLowerCase())) {
       throw new Error('That username is already in this room.');
     }
 
-    room.players.push({ id: makeId(), name: playerName, color: playerColor, score: 0 });
+    const playerRecord = await registerPlayerWithAvatar(
+      playerName,
+      playerColor,
+      form.get('avatar')
+    );
+    rooms = readRooms();
+    room = rooms.find(item => item.id === roomId && item.status === 'waiting');
+    if (!room) throw new Error('That room is no longer available.');
+    if (room.players.length >= MAX_PLAYERS) throw new Error('That room is full.');
+    if (room.players.some(player => player.name.toLowerCase() === playerName.toLowerCase())) {
+      throw new Error('That username is already in this room.');
+    }
+
+    room.players.push({
+      id: makeId(),
+      dbId: playerRecord.id,
+      avatarUrl: playerRecord.avatar_url ?? null,
+      name: playerName,
+      color: playerColor,
+      score: 0
+    });
     writeRooms(rooms);
     showLobbyMessage(`${playerName} joined "${room.name}".`);
     renderLobby();
   });
+});
+
+historyList.addEventListener('click', event => {
+  const deleteButton = event.target.closest('.delete-match');
+  if (deleteButton) {
+    withLobbyError(() => deleteMatchRecord(deleteButton.dataset.matchId));
+  }
 });
 
 roomList.addEventListener('click', event => {
@@ -1022,6 +1179,7 @@ function startMatch(roomId) {
       getPlayerColor(roomPlayer, index)
     );
     player.id = roomPlayer.id;
+    player.dbId = roomPlayer.dbId;
     players.push(player);
     createPlayerBase(player);
   });
@@ -1086,13 +1244,17 @@ function startNextRound() {
 
 function completeCurrentRoom(rankings, winner) {
   if (!currentRoom) return;
+  const completedRoom = currentRoom;
+  const endedAt = new Date().toISOString();
+  currentRoom = null;
+
   try {
-    const rooms = readRooms().filter(room => room.id !== currentRoom.id);
+    const rooms = readRooms().filter(room => room.id !== completedRoom.id);
     const history = readHistory();
     history.unshift({
-      id: currentRoom.id,
-      roomName: currentRoom.name,
-      endedAt: new Date().toISOString(),
+      id: completedRoom.id,
+      roomName: completedRoom.name,
+      endedAt,
       round: matchRound,
       result: `Best of 3 · ${players.map(player => `${player.name} ${player.roundWins}`).join(' : ')}`,
       players: rankings.map(player => ({
@@ -1103,10 +1265,52 @@ function completeCurrentRoom(rankings, winner) {
     });
     writeRooms(rooms);
     writeHistory(history.slice(0, 50));
-    currentRoom = null;
   } catch (error) {
     showLobbyMessage(`Match ended, but its history couldn't be saved: ${error.message}`, true);
   }
+
+  void saveCompletedMatchToCloud(
+    completedRoom.name,
+    matchRound,
+    players,
+    winner.dbId,
+    endedAt
+  ).then(renderMatchHistory).catch(error => {
+    showLobbyMessage(`Match ended, but cloud history couldn't be saved: ${error.message}`, true);
+  });
+}
+
+async function saveCompletedMatchToCloud(roomName, totalRounds, finalPlayers, winnerId, endedAt) {
+  if (finalPlayers.some(player => !player.dbId)) {
+    throw new Error('One or more players are missing their Supabase player record. Recreate the room to save cloud history.');
+  }
+
+  const { data: match, error: matchError } = await supabase
+    .from('matches')
+    .insert({
+      room_name: roomName,
+      status: 'completed',
+      total_rounds: totalRounds,
+      ended_at: endedAt
+    })
+    .select()
+    .single();
+
+  if (matchError) throw matchError;
+
+  const participantRows = finalPlayers.map(player => ({
+    match_id: match.id,
+    player_id: player.dbId,
+    round_wins: player.roundWins,
+    cones_collected: player.baseCones.length,
+    is_winner: player.dbId === winnerId
+  }));
+
+  const { error: participantError } = await supabase
+    .from('match_participants')
+    .insert(participantRows);
+
+  if (participantError) throw participantError;
 }
 
 document.querySelector('#leave-match').addEventListener('click', () => {

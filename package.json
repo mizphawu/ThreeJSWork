@@ -12,6 +12,7 @@
     "vite": "^6.2.7"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.1",
     "bootstrap": "^5.3.9",
     "three": "^0.187.0"
   }
