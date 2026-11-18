@@ -1,4 +1,17 @@
-body { overflow: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap');
+
+body { 
+  overflow: hidden; 
+  font-family: 'Fredoka', system-ui, sans-serif;
+}
+
+.title-cute {
+  font-family: 'Fredoka', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: .04em;
+  /* chunky sticker look: a hard offset shadow */
+  text-shadow: 0 4px 0 rgba(0, 0, 0, .35);
+}
 
 #game-container { width: 100vw; height: 100vh; }
 canvas { display: block; }
@@ -21,9 +34,66 @@ canvas { display: block; }
   background: var(--player-color);
 }
 
-#lobby { background: rgba(10, 16, 26, 0.94); }
-
 .rank { min-width: 150px; }
 .rank-1 { min-height: 210px; background: #a77b20; }
 .rank-2 { min-height: 170px; background: #64748b; }
 .rank-3 { min-height: 140px; background: #925d3b; }
+
+.lobby-header { background: linear-gradient(180deg, #FFD38B, #F2A67B); }
+
+.create-panel { background: #ffeed2; border-color: #f5d9a3 !important; }
+
+/* Title: orange and pink with a chunky offset shadow */
+.title-cone  { color: #ff8c32; }
+.title-clash { color: #ffffff; }
+.title-cute  { text-shadow: 0 5px 0 rgba(43, 45, 66, .18); }
+
+
+/* CSS-drawn cone, same orange as the game cones */
+.cone-logo-img {
+  height: 90px;      /* adjust to taste */
+  width: auto;       /* keeps the aspect ratio */
+  filter: drop-shadow(0 6px 0 rgba(0, 0, 0, .3));
+  transform-origin: 50% 100%; /* pivots from the tip/bottom so the tilt looks natural */
+}
+.cone-bounce { animation: cone-bounce 1.6s ease-in-out infinite; }
+@keyframes cone-bounce {
+  0%, 100% { transform: translateY(0) rotate(-5deg); }
+  50%      { transform: translateY(-8px) rotate(5deg); }
+}
+
+.section-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+.btn-pop:hover:not(:disabled) { transform: scale(1.04) rotate(-1deg); }
+.btn-pop:active:not(:disabled) { transform: scale(.96); }
+.room-card:hover { transform: translateY(-3px); }
+.border-dashed { border-style: dashed !important; }
+
+
+.bubbles { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.bubbles span {
+  position: absolute;
+  bottom: -120px;
+  border-radius: 50%;
+  opacity: .55;
+  animation: float-up linear infinite;
+   box-shadow: inset -6px -6px 14px rgba(255, 255, 255, .45);
+}
+.bubbles span:nth-child(1) { left: 8%;  width: 60px;  height: 60px;  background: #ffd447; animation-duration: 16s; }
+.bubbles span:nth-child(2) { left: 22%; width: 100px; height: 100px; background: #ff7a9c; animation-duration: 22s; animation-delay: -6s; }
+.bubbles span:nth-child(3) { left: 40%; width: 40px;  height: 40px;  background: #6aa8ff; animation-duration: 14s; animation-delay: -3s; }
+.bubbles span:nth-child(4) { left: 60%; width: 80px;  height: 80px;  background: #ffa05a; animation-duration: 19s; animation-delay: -10s; }
+.bubbles span:nth-child(5) { left: 78%; width: 120px; height: 120px; background: #b48cff; animation-duration: 25s; animation-delay: -4s; }
+.bubbles span:nth-child(6) { left: 92%; width: 50px;  height: 50px;  background: #5fd9b0; animation-duration: 15s; animation-delay: -8s; }
+
+@keyframes float-up {
+  to { transform: translateY(-120vh) rotate(180deg); }
+}
+
+#lobby.lobby-bg {
+  background: #4e1d00 !important;
+}
+
+.lobby-card {
+    background: #F2A67B !important;
+}

@@ -62,43 +62,63 @@ const ui = document.createElement('div');
 ui.id = 'game-ui';
 
 ui.innerHTML = `
-  <section id="lobby" class="position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2">
-    <div class="container" style="max-width: 760px">
-      <div class="card shadow-lg">
-        <div class="card-body p-4">
-          <h1 class="display-5 fw-bold text-warning">CONE CLASH</h1>
-          <p class="text-body-secondary mb-4">Create a room and play together on this device.</p>
+  <section id="lobby" class="position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2 bg-gradient">
+  <div class="bubbles" aria-hidden="true">
+  <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div class="container" style="max-width: 760px">
+    <div class="card lobby-card border-0 rounded-5 shadow-lg overflow-hidden">
 
-          <form id="create-room-form" class="row g-3 align-items-end bg-body-tertiary rounded p-3 mb-3">
-            <div class="col-12 col-md-5">
-              <label class="form-label" for="room-name">Room name</label>
-              <input id="room-name" name="roomName" class="form-control" maxlength="24" placeholder="Friday match" required>
-            </div>
-            <div class="col-8 col-md-4">
-              <label class="form-label" for="create-player-name">Your username</label>
-              <input id="create-player-name" name="playerName" class="form-control" maxlength="16" placeholder="Your name" required>
-            </div>
-            <div class="col-4 col-md-3">
-              <label class="form-label" for="create-player-color">Color</label>
-              <input id="create-player-color" name="playerColor" type="color" value="#ff5252"
-                     class="form-control form-control-color w-100" aria-label="Choose your player and cone color">
-            </div>
-            <div class="col-12">
-              <button type="submit" class="btn btn-warning fw-bold w-100">CREATE ROOM</button>
-            </div>
-          </form>
+      <!-- Header -->
+      <div class="text-center py-4 px-3 border-bottom border-4 border-warning lobby-header">
+        <img src="/traffic-cone.png" alt="" class="cone-logo-img cone-bounce d-block mx-auto mb-2">
+        <h1 class="display-4 fw-bolder text-uppercase mb-1 title-cute">
+          <span class="title-cone">Cone</span> <span class="title-clash">Clash</span>
+        </h1>
+        <p class="text-body-secondary fw-medium mb-0">Cone it, Phloem, cone it!</p>
+      </div>
 
-          <div id="lobby-message" class="small mb-3" role="status" aria-live="polite"></div>
+      <div class="card-body p-4">
 
-          <h2 class="h6 text-body-secondary letter-spacing">AVAILABLE ROOMS</h2>
-          <div id="room-list"></div>
+        <form id="create-room-form" class="row g-3 align-items-end bg-body-tertiary border border-2 rounded-4 p-3 mb-3">
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="room-name">Room name</label>
+            <input id="room-name" name="roomName" class="form-control form-control-lg rounded-pill border-2"
+                   maxlength="24" placeholder="Friday match" required>
+          </div>
+          <div class="col-8 col-md-4">
+            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-name">Username</label>
+            <input id="create-player-name" name="playerName" class="form-control form-control-lg rounded-pill border-2"
+                   maxlength="16" placeholder="Your name" required>
+          </div>
+          <div class="col-4 col-md-3">
+            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-color">Color</label>
+            <input id="create-player-color" name="playerColor" type="color" value="#ff5252"
+                   class="form-control form-control-color form-control-lg w-100 rounded-pill border-2"
+                   aria-label="Choose your player and cone color">
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-warning btn-lg fw-bold w-100 rounded-pill text-uppercase btn-pop">
+              Create room
+            </button>
+          </div>
+        </form>
 
-          <h2 class="h6 text-body-secondary mt-4">MATCH HISTORY</h2>
-          <div id="match-history" class="list-group"></div>
-        </div>
+        <div id="lobby-message" class="small mb-3" role="status" aria-live="polite"></div>
+
+        <h2 class="h6 fw-bold text-uppercase text-success-emphasis d-flex align-items-center gap-2">
+          <span class="section-dot bg-success"></span> Available rooms
+        </h2>
+        <div id="room-list" class="mb-4"></div>
+
+        <h2 class="h6 fw-bold text-uppercase text-primary-emphasis d-flex align-items-center gap-2">
+        <span class="section-dot bg-primary"></span> Match history
+        </h2>
+        <div id="match-history" class="d-grid gap-2"></div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
   <div id="game-hud" class="hidden">
     <div id="timer" class="position-absolute top-0 start-50 translate-middle-x mt-3 px-4 py-2 display-5 fw-bolder bg-body border border-3 rounded-4">45</div>
@@ -763,65 +783,88 @@ function withLobbyError(action) {
 function renderLobby() {
   withLobbyError(() => {
     const rooms = readRooms().filter(room => room.status === 'waiting');
+
     roomList.innerHTML = rooms.length ? rooms.map(room => `
-      <div class="card mb-3">
+      <div class="card border-0 border-start border-5 border-success rounded-4 shadow-sm mb-3 room-card">
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h3 class="h5 mb-0">${escapeHtml(room.name)}</h3>
-            <span class="badge text-bg-secondary">${room.players.length}/${MAX_PLAYERS} PLAYERS</span>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h5 fw-bolder mb-0"> ${escapeHtml(room.name)}</h3>
+            <span class="badge rounded-pill text-bg-success fs-6">
+              ${room.players.length}/${MAX_PLAYERS} players
+            </span>
           </div>
+
           <ul class="list-group list-group-flush mb-3">
             ${room.players.map((player, index) => `
-              <li class="list-group-item d-flex align-items-center gap-2 bg-transparent">
+              <li class="list-group-item d-flex align-items-center gap-2 bg-transparent px-0">
                 <span class="player-color-swatch" style="--player-color: ${getPlayerColor(player, index)}"></span>
-                <span class="flex-grow-1">${escapeHtml(player.name)}</span>
-                <input class="room-player-color form-control form-control-color form-control-sm" type="color"
-                       value="${getPlayerColor(player, index)}"
+                <span class="flex-grow-1 fw-semibold">${escapeHtml(player.name)}</span>
+                <input class="room-player-color form-control form-control-color form-control-sm rounded-pill border-2"
+                       type="color" value="${getPlayerColor(player, index)}"
                        data-room-id="${escapeHtml(room.id)}" data-player-id="${escapeHtml(player.id)}"
                        aria-label="Change ${escapeHtml(player.name)}'s color">
-                <button type="button" class="remove-player btn btn-sm btn-outline-secondary"
+                <button type="button" class="remove-player btn btn-sm btn-outline-danger rounded-pill px-3"
                         data-room-id="${escapeHtml(room.id)}" data-player-id="${escapeHtml(player.id)}"
-                        aria-label="Remove ${escapeHtml(player.name)}">LEAVE</button>
+                        aria-label="Remove ${escapeHtml(player.name)}">Leave</button>
               </li>
             `).join('')}
           </ul>
-          <form class="join-room-form row g-2 align-items-center" data-room-id="${escapeHtml(room.id)}">
+
+          <form class="join-room-form row g-2 align-items-center bg-warning-subtle rounded-4 p-2 mx-0"
+                data-room-id="${escapeHtml(room.id)}">
             <div class="col-12 col-sm">
-              <input name="playerName" class="form-control" maxlength="16" placeholder="Username to join"
+              <input name="playerName" class="form-control rounded-pill border-2" maxlength="16"
+                     placeholder="Username to join"
                      aria-label="Username to join ${escapeHtml(room.name)}" required>
             </div>
             <div class="col-auto">
               <input name="playerColor" type="color" value="${defaultPlayerColor(room.players)}"
-                     class="form-control form-control-color" aria-label="Choose your player and cone color">
+                     class="form-control form-control-color rounded-pill border-2"
+                     aria-label="Choose your player and cone color">
             </div>
             <div class="col-auto">
-              <button type="submit" class="btn btn-warning fw-bold" ${room.players.length >= MAX_PLAYERS ? 'disabled' : ''}>JOIN</button>
+              <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4 btn-pop"
+                      ${room.players.length >= MAX_PLAYERS ? 'disabled' : ''}>JOIN</button>
             </div>
             <div class="col-auto">
-              <button type="button" class="start-match btn btn-success fw-bold" data-room-id="${escapeHtml(room.id)}"
+              <button type="button" class="start-match btn btn-success fw-bold rounded-pill px-4 btn-pop"
+                      data-room-id="${escapeHtml(room.id)}"
                       ${room.players.length < 2 ? 'disabled' : ''}>START MATCH</button>
             </div>
           </form>
         </div>
       </div>
-    `).join('') : '<p class="text-body-secondary">No rooms yet. Create one to get started.</p>';
+    `).join('') : `
+      <div class="text-center text-body-secondary bg-body-tertiary rounded-4 border border-2 border-dashed py-4">
+        <div class="fs-1"></div>
+        No rooms yet. Create one to get started!
+      </div>`;
 
     const history = readHistory();
     historyList.innerHTML = history.length ? history.slice(0, 10).map(match => `
-      <div class="list-group-item">
-        <div class="d-flex justify-content-between flex-wrap gap-2">
-          <strong>${escapeHtml(match.roomName)}</strong>
-          <small class="text-body-secondary">${escapeHtml(new Date(match.endedAt).toLocaleString())}</small>
-        </div>
-        <div class="small text-body-secondary">${escapeHtml(match.result)} · FINISHED IN ROUND ${match.round}</div>
-        <div class="small d-flex flex-wrap gap-3 mt-1">${match.players.map((player, index) => `
-          <span class="d-inline-flex align-items-center gap-1">
-            <span class="player-color-swatch" style="--player-color: ${getPlayerColor(player, index)}"></span>
-            ${escapeHtml(player.name)}: ${player.score} round wins
-          </span>`).join('')}
+      <div class="card border-0 border-start border-5 border-primary rounded-4 shadow-sm">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between flex-wrap gap-2">
+            <h3 class="h6 fw-bolder mb-0">👑- ${escapeHtml(match.roomName)}</h3>
+            <small class="text-body-secondary">${escapeHtml(new Date(match.endedAt).toLocaleString())}</small>
+          </div>
+          <div class="small text-body-secondary mb-2">
+            ${escapeHtml(match.result)} · Finished in round ${match.round}
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            ${match.players.map((player, index) => `
+              <span class="badge rounded-pill fs-6 fw-semibold d-inline-flex align-items-center gap-1 text-white"
+                    style="background:${getPlayerColor(player, index)}; text-shadow: 0 1px 2px rgba(0,0,0,.5)">
+                ${index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                ${escapeHtml(player.name)}: ${player.score} round wins
+              </span>`).join('')}
+          </div>
         </div>
       </div>
-    `).join('') : '<p class="text-body-secondary">Completed matches will show up here.</p>';
+    `).join('') : `
+      <div class="text-center text-body-secondary bg-body-tertiary rounded-4 py-3">
+        🏆 Completed matches will show up here.
+      </div>`;
   });
 }
 
