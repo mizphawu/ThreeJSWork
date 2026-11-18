@@ -22,7 +22,8 @@ canvas { display: block; }
 
 .hidden { display: none !important; }
 
-#countdown { top: 35%; text-shadow: 3px 3px 10px #000; }
+#countdown { top: 35%; min-width: 3em; }
+#countdown:empty { display: none; }
 
 .player-color-swatch {
   display: inline-block;
@@ -105,6 +106,21 @@ canvas { display: block; }
   to { opacity: 0; transform: translateY(-28px) scale(.94); }
 }
 
+@keyframes fade-in  { from { opacity: 0; } }
+@keyframes fade-out { to   { opacity: 0; } }
+
+/* Instruction card: backdrop fades in, card pops in */
+#ready-screen { animation: fade-in .3s ease-out both; }
+#ready-screen .card { animation: screen-in .45s cubic-bezier(.2, .9, .3, 1.2) both; }
+
+/* HUD fades in when the countdown starts */
+#game-hud { animation: fade-in .4s ease-out both; }
+
+/* Added by JS right before a screen is hidden */
+.leaving { animation: fade-out .3s ease-in forwards !important; }
+.leaving > .container,
+.leaving > .card { animation: screen-out .3s ease-in forwards !important; }
+
 /* Cards pop in whenever their screen un-hides; bubbles stay put behind them */
 #main-menu .container,
 #lobby .container { animation: screen-in .45s cubic-bezier(.2, .9, .3, 1.2) both; }
@@ -113,9 +129,24 @@ canvas { display: block; }
 .menu-view { animation: screen-in .3s ease-out both; }
 
 .screen-out { animation: screen-out .3s ease-in forwards !important; }
-
 @media (prefers-reduced-motion: reduce) {
-  #main-menu .container, #lobby .container, .menu-view, .screen-out {
+  #main-menu .container, #lobby .container, #ready-screen, #ready-screen .card,
+  #game-hud, .menu-view, .leaving, .leaving > .container, .leaving > .card {
     animation-duration: 1ms !important;
   }
 }
+
+.color-swatch {
+  width: 34px;
+  height: 34px;
+  background: var(--swatch);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .2);
+  transition: transform .15s, box-shadow .15s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.btn-check:checked + .color-swatch { transform: scale(1.15); box-shadow: 0 0 0 3px #2b2d42; }
+.btn-check:disabled + .color-swatch { opacity: .25; cursor: not-allowed; transform: none; }
+.btn-check:focus-visible + .color-swatch { outline: 3px solid #0d6efd; outline-offset: 2px; }
+
+#lobby, #podium, #ready-screen, #leave-match, #restart { pointer-events: auto; }
