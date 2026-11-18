@@ -1,10 +1,8 @@
-
+import 'bootstrap/dist/css/bootstrap.min.css';
 import './style.css';
 import * as THREE from 'three';
 
-// ==========================================
 // 1. SCENE SETUP
-// ==========================================
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x18202c);
@@ -26,9 +24,7 @@ renderer.shadowMap.enabled = true;
 
 document.querySelector('#game-container').appendChild(renderer.domElement);
 
-// ==========================================
 // 2. LIGHTING
-// ==========================================
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
 scene.add(ambientLight);
@@ -38,9 +34,7 @@ sunlight.position.set(5, 15, 5);
 sunlight.castShadow = true;
 scene.add(sunlight);
 
-// ==========================================
 // 3. ARENA
-// ==========================================
 
 const ground = new THREE.Mesh(
   new THREE.BoxGeometry(20, 0.2, 16),
@@ -61,70 +55,75 @@ centerCircle.rotation.x = -Math.PI / 2;
 centerCircle.position.y = 0.015;
 scene.add(centerCircle);
 
-// ==========================================
 // 4. GAME UI
-// ==========================================
 
 const ui = document.createElement('div');
 
 ui.id = 'game-ui';
 
 ui.innerHTML = `
-  <section id="lobby">
-    <div class="lobby-panel">
-      <h1>CONE CLASH</h1>
-      <p class="lobby-subtitle">Create a room and play together on this device.</p>
-      <form id="create-room-form" class="create-room-form">
-        <label>
-          Room name
-          <input id="room-name" name="roomName" maxlength="24" placeholder="Friday match" required>
-        </label>
-        <label>
-          Your username
-          <input id="create-player-name" name="playerName" maxlength="16" placeholder="Your name" required>
-        </label>
-        <label>
-          Your color
-          <input name="playerColor" type="color" value="#ff5252" aria-label="Choose your player and cone color">
-        </label>
-        <button type="submit">CREATE ROOM</button>
-      </form>
-      <p id="lobby-message" role="status" aria-live="polite"></p>
-      <h2>AVAILABLE ROOMS</h2>
-      <div id="room-list"></div>
-      <section class="history-section">
-        <h2>MATCH HISTORY</h2>
-        <div id="match-history"></div>
-      </section>
+  <section id="lobby" class="position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2">
+    <div class="container" style="max-width: 760px">
+      <div class="card shadow-lg">
+        <div class="card-body p-4">
+          <h1 class="display-5 fw-bold text-warning">CONE CLASH</h1>
+          <p class="text-body-secondary mb-4">Create a room and play together on this device.</p>
+
+          <form id="create-room-form" class="row g-3 align-items-end bg-body-tertiary rounded p-3 mb-3">
+            <div class="col-12 col-md-5">
+              <label class="form-label" for="room-name">Room name</label>
+              <input id="room-name" name="roomName" class="form-control" maxlength="24" placeholder="Friday match" required>
+            </div>
+            <div class="col-8 col-md-4">
+              <label class="form-label" for="create-player-name">Your username</label>
+              <input id="create-player-name" name="playerName" class="form-control" maxlength="16" placeholder="Your name" required>
+            </div>
+            <div class="col-4 col-md-3">
+              <label class="form-label" for="create-player-color">Color</label>
+              <input id="create-player-color" name="playerColor" type="color" value="#ff5252"
+                     class="form-control form-control-color w-100" aria-label="Choose your player and cone color">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-warning fw-bold w-100">CREATE ROOM</button>
+            </div>
+          </form>
+
+          <div id="lobby-message" class="small mb-3" role="status" aria-live="polite"></div>
+
+          <h2 class="h6 text-body-secondary letter-spacing">AVAILABLE ROOMS</h2>
+          <div id="room-list"></div>
+
+          <h2 class="h6 text-body-secondary mt-4">MATCH HISTORY</h2>
+          <div id="match-history" class="list-group"></div>
+        </div>
+      </div>
     </div>
   </section>
-  <div id="game-hud" class="hidden">
-    <div id="timer">45</div>
-    <div id="match-status">ROUND 1 · REAL-TIME</div>
-    <div id="countdown">GET READY!</div>
-    <div id="scores"></div>
 
-    <div id="instructions">
-      P1: WASD + E |
-      P2: ARROWS + ENTER |
-      P3: IJKL + O
-      <button id="leave-match" type="button">LEAVE MATCH</button>
+  <div id="game-hud" class="hidden">
+    <div id="timer" class="position-absolute top-0 start-50 translate-middle-x mt-3 px-4 py-2 display-5 fw-bolder bg-body border border-3 rounded-4">45</div>
+    <div id="match-status" class="badge text-bg-dark position-absolute start-50 translate-middle-x" style="top: 105px">ROUND 1 · REAL-TIME</div>
+    <div id="countdown" class="position-absolute start-50 translate-middle display-1 fw-black">GET READY!</div>
+    <div id="scores" class="position-absolute top-0 start-0 m-3 p-3 rounded-3 bg-dark bg-opacity-75 fw-bold"></div>
+
+    <div id="instructions" class="position-absolute bottom-0 start-50 translate-middle-x mb-3 px-3 py-2 rounded-3 bg-dark bg-opacity-75 small d-flex align-items-center gap-3">
+      <span id="controls-text">P1: WASD + E | P2: ARROWS + ENTER | P3: IJKL + O</span>
+      <button id="leave-match" type="button" class="btn btn-sm btn-outline-warning">LEAVE MATCH</button>
     </div>
   </div>
 
-  <div id="podium" class="hidden">
-    <h1>GAME OVER!</h1>
-    <div id="podium-content"></div>
-    <button id="restart">BACK TO LOBBY</button>
+  <div id="podium" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center gap-4 bg-black bg-opacity-90">
+    <h1 class="display-4 fw-bold text-warning text-center"></h1>
+    <div id="podium-content" class="d-flex flex-wrap justify-content-center align-items-end gap-3"></div>
+    <button id="restart" type="button" class="btn btn-warning btn-lg fw-bold px-5">BACK TO LOBBY</button>
   </div>
-  <div id="app-message" role="alert" aria-live="assertive"></div>
+
+  <div id="app-message" class="alert alert-danger position-absolute top-0 start-50 translate-middle-x mt-3 d-none" role="alert" aria-live="assertive"></div>
 `;
 
 document.body.appendChild(ui);
 
-// ==========================================
 // 5. PLAYER DATA
-// ==========================================
 
 const playerConfigs = [
   {
@@ -212,9 +211,7 @@ function createPlayer(config, index, name, color = config.color) {
   };
 }
 
-// ==========================================
 // 6. PLAYER BASES
-// ==========================================
 
 function createPlayerBase(player) {
   const base = new THREE.Mesh(
@@ -231,9 +228,7 @@ function createPlayerBase(player) {
   scene.add(base);
 }
 
-// ==========================================
 // 7. CONE CREATION
-// ==========================================
 
 const centerCones = [];
 
@@ -353,9 +348,7 @@ function animateCones(elapsedTime) {
   });
 }
 
-// ==========================================
 // 8. KEYBOARD INPUT
-// ==========================================
 
 const pressedKeys = {};
 
@@ -384,9 +377,7 @@ window.addEventListener('keyup', event => {
   pressedKeys[event.code] = false;
 });
 
-// ==========================================
 // 9. PICK UP, DEPOSIT AND STEAL
-// ==========================================
 
 function interact(player) {
 
@@ -470,9 +461,7 @@ function interact(player) {
   }
 }
 
-// ==========================================
-// 10. UPDATE BASE CONE POSITIONS
-// ==========================================
+// 10. UPDATE CONE POSITIONS
 
 function updateBaseCones(player) {
 
@@ -491,9 +480,7 @@ function updateBaseCones(player) {
   });
 }
 
-// ==========================================
 // 11. PLAYER MOVEMENT
-// ==========================================
 
 function movePlayer(player, delta) {
 
@@ -551,9 +538,7 @@ function movePlayer(player, delta) {
   }
 }
 
-// ==========================================
-// 12. SCOREBOARD
-// ==========================================
+// SCOREBOARD
 
 let currentRoom = null;
 let matchRound = 1;
@@ -606,9 +591,7 @@ function updateScores() {
 
 updateScores();
 
-// ==========================================
 // 13. GAME TIMER
-// ==========================================
 
 let countdown = 3;
 let gameTime = 45;
@@ -646,9 +629,7 @@ function startCountdown() {
   }, 1000);
 }
 
-// ==========================================
 // 14. END GAME AND PODIUM
-// ==========================================
 
 function endGame(winner = null) {
 
@@ -680,12 +661,14 @@ function endGame(winner = null) {
     : rankings;
 
   podiumContent.innerHTML = displayRankings.map((player, index) => `
-    <div class="rank rank-${index + 1}">
-      <h2>${medals[index]} ${index + 1} ${matchWinner ? 'OVERALL' : 'ROUND'}</h2>
-      <h3>${escapeHtml(player.name)}</h3>
-      <p>${matchWinner ? player.roundWins + ' ROUND WINS' : player.baseCones.length + ' CONES'}</p>
+  <div class="card text-center rank rank-${index + 1}">
+    <div class="card-body">
+      <h2 class="h5">${medals[index]} ${index + 1} ${matchWinner ? 'OVERALL' : 'ROUND'}</h2>
+      <h3 class="h4">${escapeHtml(player.name)}</h3>
+      <p class="mb-0">${matchWinner ? player.roundWins + ' ROUND WINS' : player.baseCones.length + ' CONES'}</p>
     </div>
-  `).join('');
+  </div>
+`).join('');
 
   if (matchWinner) {
     matchComplete = true;
@@ -704,9 +687,7 @@ function endGame(winner = null) {
   podium.classList.remove('hidden');
 }
 
-// ==========================================
 // 15. RESTART GAME
-// ==========================================
 
 document.querySelector('#restart').addEventListener('click', () => {
   if (players.length && currentRoom && !matchComplete) {
@@ -716,9 +697,7 @@ document.querySelector('#restart').addEventListener('click', () => {
   }
 });
 
-// ==========================================
 // 16. LOCAL ROOM LOBBY
-// ==========================================
 
 const ROOMS_KEY = 'cone-clash-rooms';
 const HISTORY_KEY = 'cone-clash-history';
@@ -730,9 +709,10 @@ const historyList = document.querySelector('#match-history');
 
 function showLobbyMessage(message, isError = false) {
   lobbyMessage.textContent = message;
-  lobbyMessage.classList.toggle('error', isError);
+  lobbyMessage.classList.toggle('text-danger', isError);
+  lobbyMessage.classList.toggle('text-success', !isError);
   appMessage.textContent = isError ? message : '';
-  appMessage.classList.toggle('visible', isError);
+  appMessage.classList.toggle('d-none', !isError);
 }
 
 function readCollection(key, label) {
@@ -784,46 +764,64 @@ function renderLobby() {
   withLobbyError(() => {
     const rooms = readRooms().filter(room => room.status === 'waiting');
     roomList.innerHTML = rooms.length ? rooms.map(room => `
-      <article class="room-card">
-        <div class="room-heading">
-          <h3>${escapeHtml(room.name)}</h3>
-          <span>${room.players.length}/${MAX_PLAYERS} PLAYERS</span>
-        </div>
-        <ul class="room-players">
-          ${room.players.map((player, index) => `
-            <li>
-              <span class="room-player-name">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h5 mb-0">${escapeHtml(room.name)}</h3>
+            <span class="badge text-bg-secondary">${room.players.length}/${MAX_PLAYERS} PLAYERS</span>
+          </div>
+          <ul class="list-group list-group-flush mb-3">
+            ${room.players.map((player, index) => `
+              <li class="list-group-item d-flex align-items-center gap-2 bg-transparent">
                 <span class="player-color-swatch" style="--player-color: ${getPlayerColor(player, index)}"></span>
-                ${escapeHtml(player.name)}
-              </span>
-              <input class="room-player-color" type="color" value="${getPlayerColor(player, index)}" data-room-id="${escapeHtml(room.id)}" data-player-id="${escapeHtml(player.id)}" aria-label="Change ${escapeHtml(player.name)}'s color">
-              <button type="button" class="remove-player" data-room-id="${escapeHtml(room.id)}" data-player-id="${escapeHtml(player.id)}" aria-label="Remove ${escapeHtml(player.name)}">LEAVE</button>
-            </li>
-          `).join('')}
-        </ul>
-        <form class="join-room-form" data-room-id="${escapeHtml(room.id)}">
-          <input name="playerName" maxlength="16" placeholder="Username to join" aria-label="Username to join ${escapeHtml(room.name)}" required>
-          <label class="join-color-label">Color <input name="playerColor" type="color" value="${defaultPlayerColor(room.players)}" aria-label="Choose your player and cone color"></label>
-          <button type="submit" ${room.players.length >= MAX_PLAYERS ? 'disabled' : ''}>JOIN</button>
-          <button type="button" class="start-match" data-room-id="${escapeHtml(room.id)}" ${room.players.length < 2 ? 'disabled' : ''}>START MATCH</button>
-        </form>
-      </article>
-    `).join('') : '<p class="empty-state">No rooms yet. Create one to get started.</p>';
+                <span class="flex-grow-1">${escapeHtml(player.name)}</span>
+                <input class="room-player-color form-control form-control-color form-control-sm" type="color"
+                       value="${getPlayerColor(player, index)}"
+                       data-room-id="${escapeHtml(room.id)}" data-player-id="${escapeHtml(player.id)}"
+                       aria-label="Change ${escapeHtml(player.name)}'s color">
+                <button type="button" class="remove-player btn btn-sm btn-outline-secondary"
+                        data-room-id="${escapeHtml(room.id)}" data-player-id="${escapeHtml(player.id)}"
+                        aria-label="Remove ${escapeHtml(player.name)}">LEAVE</button>
+              </li>
+            `).join('')}
+          </ul>
+          <form class="join-room-form row g-2 align-items-center" data-room-id="${escapeHtml(room.id)}">
+            <div class="col-12 col-sm">
+              <input name="playerName" class="form-control" maxlength="16" placeholder="Username to join"
+                     aria-label="Username to join ${escapeHtml(room.name)}" required>
+            </div>
+            <div class="col-auto">
+              <input name="playerColor" type="color" value="${defaultPlayerColor(room.players)}"
+                     class="form-control form-control-color" aria-label="Choose your player and cone color">
+            </div>
+            <div class="col-auto">
+              <button type="submit" class="btn btn-warning fw-bold" ${room.players.length >= MAX_PLAYERS ? 'disabled' : ''}>JOIN</button>
+            </div>
+            <div class="col-auto">
+              <button type="button" class="start-match btn btn-success fw-bold" data-room-id="${escapeHtml(room.id)}"
+                      ${room.players.length < 2 ? 'disabled' : ''}>START MATCH</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `).join('') : '<p class="text-body-secondary">No rooms yet. Create one to get started.</p>';
 
     const history = readHistory();
     historyList.innerHTML = history.length ? history.slice(0, 10).map(match => `
-      <article class="history-card">
-        <strong>${escapeHtml(match.roomName)}</strong>
-        <span>${escapeHtml(match.result)} · FINISHED IN ROUND ${match.round}</span>
-        <time>${escapeHtml(new Date(match.endedAt).toLocaleString())}</time>
-        <p class="history-players">${match.players.map((player, index) => `
-          <span class="history-player">
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+          <strong>${escapeHtml(match.roomName)}</strong>
+          <small class="text-body-secondary">${escapeHtml(new Date(match.endedAt).toLocaleString())}</small>
+        </div>
+        <div class="small text-body-secondary">${escapeHtml(match.result)} · FINISHED IN ROUND ${match.round}</div>
+        <div class="small d-flex flex-wrap gap-3 mt-1">${match.players.map((player, index) => `
+          <span class="d-inline-flex align-items-center gap-1">
             <span class="player-color-swatch" style="--player-color: ${getPlayerColor(player, index)}"></span>
             ${escapeHtml(player.name)}: ${player.score} round wins
-          </span>
-        `).join('')}</p>
-      </article>
-    `).join('') : '<p class="empty-state">Completed matches will show up here.</p>';
+          </span>`).join('')}
+        </div>
+      </div>
+    `).join('') : '<p class="text-body-secondary">Completed matches will show up here.</p>';
   });
 }
 
@@ -983,6 +981,10 @@ function startMatch(roomId) {
     createPlayerBase(player);
   });
 
+  document.querySelector('#controls-text').textContent = players
+  .map((player, index) => `P${index + 1}: ${Object.entries(player.keys).map(([action, key]) => `${action.toUpperCase()} ${key.replace('Key', '')}`).join(' / ')}`)
+  .join('  |  ');
+
   document.querySelector('#instructions').firstChild.textContent = players
     .map((player, index) => `P${index + 1}: ${Object.entries(player.keys).map(([action, key]) => `${action.toUpperCase()} ${key.replace('Key', '')}`).join(' / ')}`)
     .join('  |  ');
@@ -1081,9 +1083,7 @@ window.addEventListener('pagehide', () => {
 
 renderLobby();
 
-// ==========================================
 // 17. MAIN GAME LOOP
-// ==========================================
 
 const clock = new THREE.Clock();
 
@@ -1122,9 +1122,7 @@ function animate() {
 
 renderer.setAnimationLoop(animate);
 
-// ==========================================
 // 18. WINDOW RESIZE
-// ==========================================
 
 window.addEventListener('resize', () => {
 
