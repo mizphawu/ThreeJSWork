@@ -1,0 +1,198 @@
+// menu.js: title screen with Play as Guest, Login and Register.
+// Pure Bootstrap markup; all data access goes through auth.js.
+
+import { registerUser, loginUser, playAsGuest, getSession, logout } from './auth.js';
+
+const VIEWS = ['home', 'login', 'register'];
+
+const BUBBLES = `
+  <div class="bubbles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>`;
+
+function field(id, name, label, type, extra = '') {
+  return `
+    <div>
+      <label class="form-label fw-bold small text-uppercase text-body-secondary" for="${id}">${label}</label>
+      <input id="${id}" name="${name}" type="${type}"
+             class="form-control form-control-lg rounded-pill border-2" ${extra} required>
+    </div>`;
+}
+
+const MENU_HTML = `
+  <section id="main-menu" class="pe-auto position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2 bg-info-subtle bg-gradient d-flex align-items-center">
+    ${BUBBLES}
+    <div class="container" style="max-width: 460px">
+      <div class="card border-0 rounded-5 shadow-lg overflow-hidden bg-warning-subtle">
+
+        <div class="text-center py-4 px-3 border-bottom border-4 border-warning lobby-header">
+          <img src="/traffic-cone.png" alt="" class="cone-logo-img cone-bounce d-block mx-auto mb-2">
+          <h1 class="display-3 fw-bolder text-uppercase mb-1 title-cute">
+            <span class="title-cone">Cone</span> <span class="title-clash">Clash</span>
+          </h1>
+          <p class="text-body-secondary fw-medium mb-0">Grab. Dash. Steal.</p>
+        </div>
+
+        <div class="card-body p-4">
+          <div id="menu-message" class="d-none" role="status" aria-live="polite"></div>
+
+          <div id="menu-home" class="menu-view d-grid gap-3">
+            <button id="menu-guest" type="button"
+                    class="btn btn-warning btn-lg fw-bold rounded-pill text-uppercase btn-pop">
+              Play as guest
+            </button>
+            <div class="d-flex align-items-center gap-2 text-body-secondary small text-uppercase fw-bold">
+              <hr class="flex-grow-1 m-0"> or <hr class="flex-grow-1 m-0">
+            </div>
+            <button id="menu-go-login" type="button"
+                    class="btn btn-success btn-lg fw-bold rounded-pill text-uppercase btn-pop">
+              Login
+            </button>
+            <button id="menu-go-register" type="button"
+                    class="btn btn-outline-primary btn-lg fw-bold rounded-pill text-uppercase btn-pop">
+              Register
+            </button>
+          </div>
+
+          <form id="menu-login" class="hidden d-grid gap-3">
+            <h2 class="h5 fw-bold text-uppercase text-success-emphasis mb-0">Login</h2>
+            ${field('login-username', 'username', 'Username', 'text', 'maxlength="16" autocomplete="username"')}
+            ${field('login-password', 'password', 'Password', 'password', 'autocomplete="current-password"')}
+            <button type="submit" class="btn btn-success btn-lg fw-bold rounded-pill text-uppercase btn-pop">
+              Log in
+            </button>
+            <button type="button" class="menu-back btn btn-link text-body-secondary">Back</button>
+          </form>
+
+          <form id="menu-register" class="hidden d-grid gap-3">
+            <h2 class="h5 fw-bold text-uppercase text-primary-emphasis mb-0">Create account</h2>
+            ${field('register-username', 'username', 'Username', 'text', 'minlength="3" maxlength="16" autocomplete="username"')}
+            ${field('register-password', 'password', 'Password', 'password', 'minlength="6" autocomplete="new-password"')}
+            ${field('register-confirm', 'confirm', 'Confirm password', 'password', 'minlength="6" autocomplete="new-password"')}
+            <button type="submit" class="btn btn-primary btn-lg fw-bold rounded-pill text-uppercase btn-pop">
+              Register
+            </button>
+            <button type="button" class="menu-back btn btn-link text-body-secondary">Back</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>`;
+
+const SESSION_BAR_HTML = `
+  <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center gap-2">
+    <span id="session-label" class="badge rounded-pill text-bg-light fs-6"></span>
+    <button id="session-button" type="button" class="btn btn-sm btn-outline-dark rounded-pill"></button>
+  </div>`;
+
+export function initMenu() {
+  document.querySelector('#game-ui').insertAdjacentHTML('beforeend', MENU_HTML);
+
+  const menu = document.querySelector('#main-menu');
+  const lobby = document.querySelector('#lobby');
+  const menuMessage = document.querySelector('#menu-message');
+  const loginForm = document.querySelector('#menu-login');
+  const registerForm = document.querySelector('#menu-register');
+
+  // Small "who am I / log out" bar on the lobby card
+  const lobbyHeader = lobby.querySelector('.lobby-header');
+  lobbyHeader.classList.add('position-relative');
+  lobbyHeader.insertAdjacentHTML('afterbegin', SESSION_BAR_HTML);
+  const sessionLabel = document.querySelector('#session-label');
+  const sessionButton = document.querySelector('#session-button');
+
+  function setMessage(text, type = 'danger') {
+    menuMessage.textContent = text;
+    menuMessage.className = text ? `alert alert-${type} py-2 small` : 'd-none';
+  }
+
+  function showView(name) {
+    setMessage('');
+    VIEWS.forEach(view => {
+      document.querySelector(`#menu-${view}`).classList.toggle('hidden', view !== name);
+    });
+    document.querySelector(`#menu-${name} input`)?.focus();
+  }
+
+  function showMenu(message = '', type = 'success') {
+    lobby.classList.add('hidden');
+    menu.classList.remove('hidden');
+    showView('home');
+    setMessage(message, type);
+  }
+
+  function enterLobby(session) {
+    const isGuest = session.type === 'guest';
+
+    menu.classList.add('hidden');
+    lobby.classList.remove('hidden');
+    sessionLabel.textContent = isGuest ? 'Guest' : session.username;
+    sessionButton.textContent = isGuest ? 'Main menu' : 'Log out';
+
+    // Pre-fill the room form with the account name (defaultValue survives form.reset())
+    const nameInput = document.querySelector('#create-player-name');
+    nameInput.value = nameInput.defaultValue = isGuest ? '' : session.username;
+  }
+
+  async function submitForm(form, task) {
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      await task(new FormData(form));
+    } catch (error) {
+      setMessage(error.message, 'danger');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.querySelector('#menu-guest').addEventListener('click', () => {
+    enterLobby(playAsGuest());
+  });
+  document.querySelector('#menu-go-login').addEventListener('click', () => showView('login'));
+  document.querySelector('#menu-go-register').addEventListener('click', () => showView('register'));
+  menu.querySelectorAll('.menu-back').forEach(button => {
+    button.addEventListener('click', () => showView('home'));
+  });
+
+  loginForm.addEventListener('submit', event => {
+    event.preventDefault();
+    submitForm(loginForm, async data => {
+      const session = await loginUser({
+        username: data.get('username').trim(),
+        password: data.get('password')
+      });
+      loginForm.reset();
+      enterLobby(session);
+    });
+  });
+
+  registerForm.addEventListener('submit', event => {
+    event.preventDefault();
+    submitForm(registerForm, async data => {
+      const username = data.get('username').trim();
+      const password = data.get('password');
+
+      if (username.length < 3 || username.length > 16) {
+        throw new Error('Username must be 3 to 16 characters.');
+      }
+      if (password.length < 6) throw new Error('Password must be at least 6 characters.');
+      if (password !== data.get('confirm')) throw new Error('Passwords do not match.');
+
+      await registerUser({ username, password });
+      registerForm.reset();
+      loginForm.elements.username.value = username;
+      showMenu(`Account "${username}" created! Log in to play.`);
+    });
+  });
+
+  sessionButton.addEventListener('click', () => {
+    logout();
+    showMenu();
+  });
+
+  // After a reload (e.g. "Back to lobby") skip the menu if already signed in
+  const session = getSession();
+  if (session) enterLobby(session);
+  else showMenu();
+}

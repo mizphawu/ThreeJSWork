@@ -97,3 +97,25 @@ canvas { display: block; }
 .lobby-card {
     background: #F2A67B !important;
 }
+
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(28px) scale(.94); }
+}
+@keyframes screen-out {
+  to { opacity: 0; transform: translateY(-28px) scale(.94); }
+}
+
+/* Cards pop in whenever their screen un-hides; bubbles stay put behind them */
+#main-menu .container,
+#lobby .container { animation: screen-in .45s cubic-bezier(.2, .9, .3, 1.2) both; }
+
+/* Login / register / home panels slide in inside the menu card */
+.menu-view { animation: screen-in .3s ease-out both; }
+
+.screen-out { animation: screen-out .3s ease-in forwards !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  #main-menu .container, #lobby .container, .menu-view, .screen-out {
+    animation-duration: 1ms !important;
+  }
+}

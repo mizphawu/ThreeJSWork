@@ -1,4 +1,5 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { initMenu } from './menu.js';
 import './style.css';
 import * as THREE from 'three';
 
@@ -142,6 +143,7 @@ ui.innerHTML = `
 `;
 
 document.body.appendChild(ui);
+initMenu();
 
 // 5. PLAYER DATA
 
