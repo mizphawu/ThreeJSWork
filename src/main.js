@@ -1,3 +1,4 @@
+import confetti from 'canvas-confetti';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { supabase } from './supabaseClient.js';
 import { initMenu } from './menu.js';
@@ -139,10 +140,27 @@ ui.innerHTML = `
     </div>
   </div>
 
-  <div id="podium" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center gap-4 bg-black bg-opacity-90">
-    <h1 class="display-4 fw-bold text-warning text-center"></h1>
-    <div id="podium-content" class="d-flex flex-wrap justify-content-center align-items-end gap-3"></div>
-    <button id="restart" type="button" class="btn btn-warning btn-lg fw-bold px-5">BACK TO LOBBY</button>
+      <div id="podium" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 bg-black bg-opacity-75 podium-backdrop">
+    <div class="container" style="max-width: 640px">
+      <div class="card lobby-card podium-card border-0 rounded-5 shadow-lg overflow-hidden">
+
+        <div class="text-center py-4 px-3 border-bottom border-4 border-warning lobby-header">
+          <div id="podium-trophy" class="display-3 d-inline-block cone-bounce">🏆</div>
+          <h1 class="podium-title title-cute display-6 fw-bolder text-uppercase text-white mb-1"></h1>
+          <p id="podium-subtitle" class="text-body-secondary fw-medium mb-0"></p>
+        </div>
+
+        <div class="card-body px-4 pt-4 pb-2">
+          <div id="podium-content" class="row g-2 justify-content-center align-items-end text-center" style="height: 280px"></div>
+        </div>
+
+        <div class="p-4 pt-2">
+          <button id="restart" type="button" class="btn btn-warning btn-lg fw-bold w-100 rounded-pill text-uppercase btn-pop">
+            BACK TO LOBBY
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <section id="ready-screen" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 bg-black bg-opacity-50">
@@ -217,7 +235,7 @@ const playerConfigs = [
   {
     name: 'PLAYER 1',
     color: 0xff5252,
-    position: [0, 0, -6],
+    position: [0, 0, -6.5],
     keys: {
       up: 'KeyW',
       down: 'KeyS',
@@ -229,7 +247,7 @@ const playerConfigs = [
   {
     name: 'PLAYER 2',
     color: 0x4287ff,
-    position: [-7, 0, 5],
+    position: [-5.6, 0, 3.25],
     keys: {
       up: 'ArrowUp',
       down: 'ArrowDown',
@@ -241,7 +259,7 @@ const playerConfigs = [
   {
     name: 'PLAYER 3',
     color: 0xffd447,
-    position: [7, 0, 5],
+    position: [5.6, 0, 3.25],
     keys: {
       up: 'KeyI',
       down: 'KeyK',
@@ -727,6 +745,42 @@ function startCountdown() {
 
 // 14. END GAME AND PODIUM
 
+// CONFETTI
+
+let confettiTimer = null;
+let confettiFrame = null;
+
+const playerHex = player => `#${player.color.toString(16).padStart(6, '0')}`;
+
+// Dark or white text, whichever reads better on the player's color
+function textClassFor(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? 'text-dark' : 'text-white';
+}
+
+function launchConfetti(accent, big = false) {
+  const colors = [accent, accent, '#ff8c32', '#ffd447', '#ff6fa8', '#6aa8ff', '#5fd9b0', '#ffffff'];
+
+  // Big burst from the middle
+  confetti({ particleCount: big ? 160 : 90, spread: 100, startVelocity: 45, origin: { x: 0.5, y: 0.65 }, colors });
+
+  // Then streams from both sides
+  const end = Date.now() + (big ? 3500 : 1800);
+  (function frame() {
+    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.75 }, colors });
+    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.75 }, colors });
+    if (Date.now() < end) confettiFrame = requestAnimationFrame(frame);
+  })();
+}
+
+function clearConfetti() {
+  clearTimeout(confettiTimer);
+  cancelAnimationFrame(confettiFrame);
+  confetti.reset();
+}
+
+// 14. END GAME AND PODIUM
+
 function endGame(winner = null) {
 
   if (gameOver) return;
@@ -748,6 +802,9 @@ function endGame(winner = null) {
 
   const podium = document.querySelector('#podium');
   const podiumContent = document.querySelector('#podium-content');
+  const title = podium.querySelector('h1');
+  const subtitle = podium.querySelector('#podium-subtitle');
+  const trophy = podium.querySelector('#podium-trophy');
 
   const medals = ['🥇', '🥈', '🥉'];
 
@@ -756,28 +813,61 @@ function endGame(winner = null) {
     ? [...players].sort((a, b) => b.roundWins - a.roundWins || b.baseCones.length - a.baseCones.length)
     : rankings;
 
-  podiumContent.innerHTML = displayRankings.map((player, index) => `
-  <div class="card text-center rank rank-${index + 1}">
-    <div class="card-body">
-      <h2 class="h5">${medals[index]} ${index + 1} ${matchWinner ? 'OVERALL' : 'ROUND'}</h2>
-      <h3 class="h4">${escapeHtml(player.name)}</h3>
-      <p class="mb-0">${matchWinner ? player.roundWins + ' ROUND WINS' : player.baseCones.length + ' CONES'}</p>
-    </div>
-  </div>
-`).join('');
+  // Rank order in the data; Bootstrap's order-* puts 1st in the middle
+  const PODIUM_ORDER   = ['order-2', 'order-1', 'order-3'];
+  const PODIUM_HEIGHTS = ['h-100', 'h-75', 'h-50'];
+  const RISE_DELAYS    = [1200, 700, 300]; // 3rd rises first, the winner last
+
+  podiumContent.innerHTML = displayRankings.map((player, index) => {
+    const hex = playerHex(player);
+    const detail = matchWinner
+      ? `${player.roundWins} round win${player.roundWins === 1 ? '' : 's'}`
+      : `${player.baseCones.length} cone${player.baseCones.length === 1 ? '' : 's'}`;
+
+    return `
+      <div class="col-4 h-100 d-flex align-items-end podium-step podium-step-${index + 1} ${PODIUM_ORDER[index]}"
+           style="--delay: ${RISE_DELAYS[index]}ms">
+        <div class="card w-100 ${PODIUM_HEIGHTS[index]} rounded-top-4 rounded-bottom-0 shadow
+                    ${index === 0 ? 'border border-4 border-warning' : 'border-0'} ${textClassFor(hex)}"
+             style="background: ${hex}">
+          <div class="card-body p-2 d-flex flex-column align-items-center justify-content-center gap-1">
+            <span class="podium-medal fs-1 lh-1">${medals[index]}</span>
+            <div class="fw-bolder w-100 text-truncate">${escapeHtml(player.name)}</div>
+            <div class="small fw-semibold opacity-75">${detail}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const series = players.map(player => `${player.name} ${player.roundWins}`).join(' : ');
 
   if (matchWinner) {
     matchComplete = true;
-    podium.querySelector('h1').textContent = `${matchWinner.name} WINS THE MATCH!`;
+    title.textContent = `${matchWinner.name} WINS THE MATCH!`;
+    subtitle.textContent = `Final series: ${series}`;
+    trophy.textContent = '🏆';
     document.querySelector('#restart').textContent = 'BACK TO LOBBY';
     completeCurrentRoom(displayRankings, matchWinner);
   } else if (roundLeader) {
-    podium.querySelector('h1').textContent =
-      `${roundLeader.name} WINS ROUND ${matchRound}!`;
+    title.textContent = `${roundLeader.name} WINS ROUND ${matchRound}!`;
+    subtitle.textContent = `Series: ${series}`;
+    trophy.textContent = '🎉';
     document.querySelector('#restart').textContent = `START ROUND ${matchRound + 1}`;
   } else {
-    podium.querySelector('h1').textContent = `ROUND ${matchRound} TIED!`;
+    title.textContent = `ROUND ${matchRound} TIED!`;
+    subtitle.textContent = 'Nobody takes the cones this time.';
+    trophy.textContent = '🤝';
     document.querySelector('#restart').textContent = `REPLAY ROUND ${matchRound}`;
+  }
+
+  // Confetti pops when the winner's step lands
+  clearConfetti();
+  const celebrated = matchWinner ?? roundLeader;
+  if (celebrated) {
+    confettiTimer = setTimeout(
+      () => launchConfetti(playerHex(celebrated), Boolean(matchWinner)),
+      1200
+    );
   }
 
   podium.classList.remove('hidden');
@@ -1333,10 +1423,11 @@ function disposeCone(cone) {
 }
 
 function beginRound() {
+  clearConfetti();
   gameOver = false;
   gameStarted = false;
   countdown = 3;
-  gameTime = 45;
+  gameTime = 60;
   matchElapsed = 0;
   nextConeShuffleAt = 7;
   timerElement.textContent = gameTime;
