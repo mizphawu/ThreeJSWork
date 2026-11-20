@@ -56,7 +56,7 @@ The SQL scripts expect the application's base tables to already exist in the `pu
 
 ### Admin accounts
 
-Public registration creates regular user accounts only. Admin accounts must be provisioned or promoted through a trusted, server-side process; do not expose admin registration in the browser.
+We will provide the admin credentials.
 
 ### Login and activity status
 
