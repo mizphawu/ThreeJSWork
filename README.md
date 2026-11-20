@@ -1,6 +1,13 @@
 # Cone Clash
 
-Cone Clash is a browser-based arena game built with Three.js, Vite, and Supabase. Players can use guest mode or sign in with an account. The admin area provides account management and tools for managing match, player, and participant records.
+Short Description: A flash multiplayer game, maximum of three per lobby.  Players must prepare and use their reflexes and speed when a countdown hits zero, they must dash to the center from their base where the set of cones, only 5, are placed. There’s a “one cone at a time” rule, you must grab one cone and put it to your base, grab as many as you can until the cone at the center is gone or before the timer reaches zero. You can steal from other players in order to achieve your goal but protect your cones as well. The player with the most cones in their base is the winner. 
+
+Game Mechanics: 
+
+- Countdown/Timer:  A 3 seconds countdown before the game starts. A 45 seconds timer is set for the player to steal or protect cones once the cones are cleared at the         center.
+- Speed: With 5 cones at the center each cone has a randomized weight which either slows down(Light cones) or speeds up (Heavy cones) the player.
+- Steal & protect:  Once the 5 cones at the center are cleared, the player has the chance to either add up or lessen their cones. The decision lies in their hands if they     will steal or protect their cones.
+- Leaderboard: The system analyzes the final numbers, sorting the three players based on the total number of cones successfully sitting inside their base line. Official       ranking will present a podium overlay covering the screen. The player with the highest score is placed in the center.
 
 ## Requirements
 
