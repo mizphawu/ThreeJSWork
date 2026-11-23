@@ -113,6 +113,7 @@ async function deleteMatchRecord(matchId) {
 // Re-check user/admin status whenever login/logout/guest happens in menu.js
 window.addEventListener('auth-changed', () => {
   void renderMatchHistory();
+});
 // Lobby
 
 
