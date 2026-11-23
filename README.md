@@ -118,7 +118,7 @@ Use the following test account of admin and user to verify the login functionali
 | Role | Username | Password |
 |---|---|---|
 | Admin | `admin01` | `adminkawow` |
-| User | `phloem11` | `phloemdel` |
+| User | `phloemwow` | `phloemdel` |
 
 
 > **Note:** Replace the placeholders with the actual test accounts configured in Supabase. These are not predefined accounts. Do not publish real production passwords or sensitive credentials in a public repository.
