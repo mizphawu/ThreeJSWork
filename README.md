@@ -1,5 +1,7 @@
 # 🚧 Cone Clash
 
+<img width="450" height="450" alt="Bonjour Traffic GIF" src="https://github.com/user-attachments/assets/96c91d60-fd94-420f-b2e4-2e42a94a0b7e" />
+
 > Hala bira!
 
 🎮 **[Play it live](https://cone-clash.vercel.app/)**
@@ -70,7 +72,7 @@ Create a `.env` file in the project root with your Supabase credentials. Check `
 
 ```
 VITE_SUPABASE_URL=your-project-url
-VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
 
 > Never commit your `.env` file. It is already listed in `.gitignore`.
@@ -188,9 +190,3 @@ src/
 - Sound effects and music
 - More arena layouts and power-ups
 - Mobile touch controls
-
----
-
-## License
-
-Add your license here.
