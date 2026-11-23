@@ -11,6 +11,7 @@ const BUBBLES = `
   </div>`;
 
 function field(id, name, label, type, extra = '') {
+<<<<<<< HEAD
   const passwordToggle = type === 'password' ? `
         <button type="button" class="password-toggle" aria-label="Show password"
                 aria-controls="${id}" aria-pressed="false">
@@ -32,6 +33,13 @@ function field(id, name, label, type, extra = '') {
                class="form-control form-control-lg rounded-pill border-2${passwordToggle ? ' pe-5' : ''}" ${extra} required>
         ${passwordToggle}
       </div>
+=======
+  return `
+    <div>
+      <label class="form-label fw-bold small text-uppercase text-body-secondary" for="${id}">${label}</label>
+      <input id="${id}" name="${name}" type="${type}"
+             class="form-control form-control-lg rounded-pill border-2" ${extra} required>
+>>>>>>> origin/main
     </div>`;
 }
 
@@ -70,9 +78,15 @@ const MENU_HTML = `
             </button>
           </div>
 
+<<<<<<< HEAD
           <form id="menu-login" class="hidden d-grid gap-3">
             <h2 class="h5 fw-bold text-uppercase text-success-emphasis mb-0">Login</h2>
             ${field('login-username', 'username', 'Username', 'text', 'maxlength="50" autocomplete="username"')}
+=======
+          <form id="menu-login" class="menu-view hidden d-grid gap-3">
+            <h2 class="h5 fw-bold text-uppercase text-success-emphasis mb-0">Login</h2>
+            ${field('login-username', 'username', 'Username', 'text', 'maxlength="16" autocomplete="username"')}
+>>>>>>> origin/main
             ${field('login-password', 'password', 'Password', 'password', 'autocomplete="current-password"')}
             <button type="submit" class="btn btn-success btn-lg fw-bold rounded-pill text-uppercase btn-pop">
               Log in
@@ -80,7 +94,11 @@ const MENU_HTML = `
             <button type="button" class="menu-back btn btn-link text-body-secondary">Back</button>
           </form>
 
+<<<<<<< HEAD
           <form id="menu-register" class="hidden d-grid gap-3">
+=======
+          <form id="menu-register" class="menu-view hidden d-grid gap-3">
+>>>>>>> origin/main
             <h2 class="h5 fw-bold text-uppercase text-primary-emphasis mb-0">Create account</h2>
             ${field('register-username', 'username', 'Username', 'text', 'minlength="3" maxlength="16" autocomplete="username"')}
             ${field('register-password', 'password', 'Password', 'password', 'minlength="6" autocomplete="new-password"')}
@@ -138,12 +156,15 @@ export function initMenu() {
   }
 
   function enterLobby(session) {
+<<<<<<< HEAD
     // Redirect administrators straight to admin.html
     if (session.type === 'admin') {
       window.location.replace('/admin.html');
       return;
     }
 
+=======
+>>>>>>> origin/main
     const isGuest = session.type === 'guest';
 
     menu.classList.add('hidden');
@@ -189,6 +210,7 @@ export function initMenu() {
     });
   });
 
+<<<<<<< HEAD
   menu.querySelectorAll('.password-toggle').forEach(button => {
     button.addEventListener('click', () => {
       const input = document.getElementById(button.getAttribute('aria-controls'));
@@ -202,6 +224,8 @@ export function initMenu() {
     });
   });
 
+=======
+>>>>>>> origin/main
   registerForm.addEventListener('submit', event => {
     event.preventDefault();
     submitForm(registerForm, async data => {
@@ -221,12 +245,21 @@ export function initMenu() {
     });
   });
 
+<<<<<<< HEAD
   sessionButton.addEventListener('click', async () => {
     await logout();
     showMenu();
   });
 
   // After a reload, restore the saved session (or redirect admin to admin.html)
+=======
+  sessionButton.addEventListener('click', () => {
+    logout();
+    showMenu();
+  });
+
+  // After a reload (e.g. "Back to lobby") skip the menu if already signed in
+>>>>>>> origin/main
   const session = getSession();
   if (session) enterLobby(session);
   else showMenu();
