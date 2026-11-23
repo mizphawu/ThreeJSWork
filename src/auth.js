@@ -4,7 +4,8 @@
 // loginUser and logout with real API calls. Keep the same function names,
 // arguments and behavior (resolve on success, throw an Error with a
 // user-friendly message on failure) and the menu UI needs no changes.
-//
+//h
+
 // The localStorage version below only exists so the menu is usable today.
 // It is NOT secure: never ship it as real authentication.
 

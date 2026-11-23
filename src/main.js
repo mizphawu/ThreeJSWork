@@ -1,95 +1,55 @@
+
+
+// Styles and libraries
 import 'bootstrap/dist/css/bootstrap.min.css';
+import './style.css';
+import * as THREE from 'three';
+
+// Menu and persistent data
 import { initMenu } from './menu.js';
-import {
-  ROOMS_KEY,
-  HISTORY_KEY,
-} from './data/constants.js';
-import {
-  readRooms,
-  writeRooms
-} from './data/storage.js';
-import {
-  fetchMatchHistoryWithJoin,
-  deleteMatch
-} from './data/database.js';
+import { ROOMS_KEY, HISTORY_KEY } from './data/constants.js';
+import { readRooms, writeRooms } from './data/storage.js';
+import { fetchMatchHistoryWithJoin, deleteMatch } from './data/database.js';
+
+// Game logic
 import { scene, camera, renderer } from './game/world.js';
 import { players } from './game/players.js';
+import { state } from './game/state.js';
 import { interact } from './game/interaction.js';
-import { colorPicker } from './ui/colorPicker.js';
-import { renderRoomList, renderHistoryList } from './ui/lobby.js';
-import { showLobbyMessage, withLobbyError } from './ui/messages.js';
-import { setupLobbyHandlers } from './ui/lobbyHandlers.js';
-import {
-  setupReadyScreen
-} from './ui/readyScreen.js';
+import { movePlayer } from './game/movement.js';
 import { updateScores } from './game/scores.js';
 import { beginRound, startNextRound } from './game/rounds.js';
 import { endGame } from './game/matchEnd.js';
 import { startMatch, leaveMatch } from './game/matchStart.js';
-import {
-  createCenterCones,
-  shuffleCones,
-  animateCones,
-} from './game/cones.js';
-import './game/input.js';
-import { movePlayer } from './game/movement.js';
-import { state } from './game/state.js';
+import { createCenterCones, shuffleCones, animateCones } from './game/cones.js';
+import './game/input.js'; // side-effect import: registers its own input listeners
+
+// UI
 import { mountGameUi } from './ui/template.js';
+import { colorPicker } from './ui/colorPicker.js';
+import { renderRoomList, renderHistoryList } from './ui/lobby.js';
+import { showLobbyMessage, withLobbyError } from './ui/messages.js';
+import { setupLobbyHandlers } from './ui/lobbyHandlers.js';
+import { setupReadyScreen } from './ui/readyScreen.js';
 
-import './style.css';
-import * as THREE from 'three';
+// Initial setup
 
+// The game markup has to exist before we start grabbing elements from it
 mountGameUi();
 initMenu();
 
-// Fill the create-room picker (placeholder is added in step 2)
+// Fill in the color picker on the create-room form
 document.querySelector('#create-color-picker').innerHTML = colorPicker('playerColor', 'create-color');
 
-// 8. KEYBOARD INPUT
-
-const finishRound = winner => endGame(winner, { onMatchSaved: renderMatchHistory });
-
-window.addEventListener('keydown', event => {
-  players.forEach(player => {
-    if (
-      event.code === player.keys.action &&
-      !event.repeat &&
-      state.gameStarted &&
-      !state.gameOver
-    ) {
-      interact(player, { onScoreChange: updateScores, onWin: finishRound });
-    }
-  });
-});
-
-updateScores();
-
 const timerElement = document.querySelector('#timer');
-
-// 15. RESTART GAME
-
-document.querySelector('#restart').addEventListener('click', () => {
-  if (players.length && state.currentRoom && !state.matchComplete) {
-    startNextRound();
-  } else {
-    window.location.reload();
-  }
-});
-
-
 const roomList = document.querySelector('#room-list');
 const historyList = document.querySelector('#match-history');
 
-function renderLobby() {
-  withLobbyError(() => {
-    const rooms = readRooms().filter(room => room.status === 'waiting');
-    renderRoomList(roomList, rooms);
-    void renderMatchHistory();
-  });
-}
+// Match history
 
+// Each fetch gets an id so a slow, older response can't overwrite a newer one
 let historyRequestId = 0;
-let historyFetchFailed = false;
+let historyFetchFailed = false; // set below but never read anywhere yet
 
 async function renderMatchHistory() {
   const requestId = ++historyRequestId;
@@ -97,7 +57,7 @@ async function renderMatchHistory() {
 
   try {
     const matches = await fetchMatchHistoryWithJoin();
-    if (requestId !== historyRequestId) return;
+    if (requestId !== historyRequestId) return; // a newer request took over
     renderHistoryList(historyList, matches);
   } catch (error) {
     if (requestId !== historyRequestId) return;
@@ -113,47 +73,96 @@ async function deleteMatchRecord(matchId) {
   await renderMatchHistory();
 }
 
+// Lobby
+
+
+function renderLobby() {
+  withLobbyError(() => {
+    // Only rooms that are still waiting for players are worth showing
+    const rooms = readRooms().filter(room => room.status === 'waiting');
+    renderRoomList(roomList, rooms);
+    void renderMatchHistory();
+  });
+}
+
+// Round and match flow
+
+// When a round ends, save the match and refresh the history list
+const finishRound = winner => endGame(winner, { onMatchSaved: renderMatchHistory });
+
+// Event listeners
+
+
+// Each player has their own action key, so check every player on keydown
+window.addEventListener('keydown', event => {
+  players.forEach(player => {
+    if (
+      event.code === player.keys.action &&
+      !event.repeat && // ignore a held-down key
+      state.gameStarted &&
+      !state.gameOver
+    ) {
+      interact(player, { onScoreChange: updateScores, onWin: finishRound });
+    }
+  });
+});
+
+// Restart: go to the next round if a match is still running, otherwise reset the page
+document.querySelector('#restart').addEventListener('click', () => {
+  if (players.length && state.currentRoom && !state.matchComplete) {
+    startNextRound();
+  } else {
+    window.location.reload();
+  }
+});
 
 document.querySelector('#leave-match').addEventListener('click', leaveMatch);
 document.querySelector('#ready-leave').addEventListener('click', leaveMatch);
 
+// Another tab changed the rooms or history, so refresh the lobby
 window.addEventListener('storage', event => {
   if (event.key === ROOMS_KEY || event.key === HISTORY_KEY) renderLobby();
 });
 
+// Remove our room when the tab closes so it doesn't linger in the lobby
 window.addEventListener('pagehide', () => {
   if (!state.currentRoom) return;
   writeRooms(readRooms().filter(room => room.id !== state.currentRoom.id));
 });
 
+
+// Startup
+
+updateScores();
 createCenterCones();
 setupLobbyHandlers({ renderLobby, startMatch, deleteMatchRecord });
 setupReadyScreen({ onAllReady: beginRound });
 renderLobby();
 
-// 17. MAIN GAME LOOP
+
+// Main game loop
+
 
 const clock = new THREE.Clock();
 
 function animate() {
-
+  // Cap delta so a lagging or backgrounded tab doesn't cause a huge jump
   const delta = Math.min(clock.getDelta(), 0.05);
   const elapsedTime = clock.elapsedTime;
+
   animateCones(elapsedTime);
 
   if (state.gameStarted && !state.gameOver) {
-
+    // Shuffle the cones every 8 seconds of match time
     state.matchElapsed += delta;
     if (state.matchElapsed >= state.nextConeShuffleAt) {
       shuffleCones(elapsedTime);
       state.nextConeShuffleAt = state.matchElapsed + 8;
     }
 
+    // Count down the round timer and end the round at zero
     state.gameTime -= delta;
-
-    timerElement.textContent = Math.ceil(
-      Math.max(state.gameTime, 0)
-    );
+    timerElement.textContent = Math.ceil(Math.max(state.gameTime, 0));
 
     if (state.gameTime <= 0) {
       state.gameTime = 0;
@@ -161,7 +170,7 @@ function animate() {
     }
 
     players.forEach(player => {
-    movePlayer(player, delta, elapsedTime);
+      movePlayer(player, delta, elapsedTime);
     });
   }
 

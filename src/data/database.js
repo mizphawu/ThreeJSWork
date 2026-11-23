@@ -1,7 +1,13 @@
-import { supabase } from '../supabaseClient.js';
+import { supabase, supabaseConfigError } from '../supabaseClient.js';
+
+function requireSupabase() {
+  if (!supabase) throw new Error(supabaseConfigError);
+  return supabase;
+}
 
 export async function fetchMatchHistoryWithJoin() {
-  const { data, error } = await supabase
+  const client = requireSupabase();
+  const { data, error } = await client
     .from('matches')
     .select(`
       id,
@@ -27,11 +33,13 @@ export async function fetchMatchHistoryWithJoin() {
 }
 
 export async function deleteMatch(matchId) {
-  const { error } = await supabase.from('matches').delete().eq('id', matchId);
+  const client = requireSupabase();
+  const { error } = await client.from('matches').delete().eq('id', matchId);
   if (error) throw error;
 }
 
 export async function registerPlayerWithAvatar(username, color, avatarFile) {
+  const client = requireSupabase();
   let avatarUrl = null;
 
   if (avatarFile && avatarFile.size > 0) {
@@ -41,17 +49,17 @@ export async function registerPlayerWithAvatar(username, color, avatarFile) {
     const fileExt = avatarFile.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await client.storage
       .from('avatars')
       .upload(fileName, avatarFile);
 
     if (uploadError) throw uploadError;
 
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+    const { data } = client.storage.from('avatars').getPublicUrl(fileName);
     avatarUrl = data.publicUrl;
   }
 
-  const { data: player, error } = await supabase
+  const { data: player, error } = await client
     .from('players')
     .upsert(
       { username, favorite_color: color, ...(avatarUrl && { avatar_url: avatarUrl }) },
@@ -65,11 +73,12 @@ export async function registerPlayerWithAvatar(username, color, avatarFile) {
 }
 
 export async function saveCompletedMatchToCloud(roomName, totalRounds, finalPlayers, winnerId, endedAt) {
+  const client = requireSupabase();
   if (finalPlayers.some(player => !player.dbId)) {
     throw new Error('One or more players are missing their Supabase player record. Recreate the room to save cloud history.');
   }
 
-  const { data: match, error: matchError } = await supabase
+  const { data: match, error: matchError } = await client
     .from('matches')
     .insert({
       room_name: roomName,
@@ -90,7 +99,7 @@ export async function saveCompletedMatchToCloud(roomName, totalRounds, finalPlay
     is_winner: player.dbId === winnerId
   }));
 
-  const { error: participantError } = await supabase
+  const { error: participantError } = await client
     .from('match_participants')
     .insert(participantRows);
 

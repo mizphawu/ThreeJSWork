@@ -54,7 +54,7 @@ const MENU_HTML = `
             </button>
           </div>
 
-          <form id="menu-login" class="hidden d-grid gap-3">
+          <form id="menu-login" class="menu-view hidden d-grid gap-3">
             <h2 class="h5 fw-bold text-uppercase text-success-emphasis mb-0">Login</h2>
             ${field('login-username', 'username', 'Username', 'text', 'maxlength="16" autocomplete="username"')}
             ${field('login-password', 'password', 'Password', 'password', 'autocomplete="current-password"')}
@@ -64,7 +64,7 @@ const MENU_HTML = `
             <button type="button" class="menu-back btn btn-link text-body-secondary">Back</button>
           </form>
 
-          <form id="menu-register" class="hidden d-grid gap-3">
+          <form id="menu-register" class="menu-view hidden d-grid gap-3">
             <h2 class="h5 fw-bold text-uppercase text-primary-emphasis mb-0">Create account</h2>
             ${field('register-username', 'username', 'Username', 'text', 'minlength="3" maxlength="16" autocomplete="username"')}
             ${field('register-password', 'password', 'Password', 'password', 'minlength="6" autocomplete="new-password"')}
