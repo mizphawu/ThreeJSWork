@@ -5,36 +5,27 @@ function requireSupabase() {
   return supabase;
 }
 
-export async function fetchMatchHistoryWithJoin() {
-  const client = requireSupabase();
-  const { data, error } = await client
-    .from('matches')
-    .select(`
-      id,
-      room_name,
-      total_rounds,
-      ended_at,
-      match_participants (
-        round_wins,
-        is_winner,
-        players (
-          username,
-          favorite_color,
-          avatar_url
-        )
-      )
-    `)
-    .eq('status', 'completed')
-    .order('ended_at', { ascending: false })
-    .limit(10);
+export async function fetchMatchHistoryWithJoin(currentUserId) {
+  if (!currentUserId) return [];
+
+  const { data, error } = await supabase.rpc('get_match_history_for_user', {
+    p_user_id: currentUserId
+  });
 
   if (error) throw error;
-  return data;
+  return data || [];
 }
 
-export async function deleteMatch(matchId) {
-  const client = requireSupabase();
-  const { error } = await client.from('matches').delete().eq('id', matchId);
+export async function deleteMatch(matchId, currentUserId) {
+  if (!currentUserId) {
+    throw new Error('Only admins can delete matches.');
+  }
+
+  const { error } = await supabase.rpc('delete_match_as_admin', {
+    p_user_id: currentUserId,
+    p_match_id: matchId
+  });
+
   if (error) throw error;
 }
 
@@ -51,9 +42,15 @@ export async function registerPlayerWithAvatar(username, color, avatarFile) {
 
     const { error: uploadError } = await client.storage
       .from('avatars')
-      .upload(fileName, avatarFile);
+      .upload(fileName, avatarFile, {
+        contentType: avatarFile.type || 'image/jpeg',
+        upsert: false
+      });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      console.error('Supabase Storage upload error details:', uploadError);
+      throw uploadError;
+    }
 
     const { data } = client.storage.from('avatars').getPublicUrl(fileName);
     avatarUrl = data.publicUrl;

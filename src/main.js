@@ -7,11 +7,19 @@ import * as THREE from 'three';
 
 // Menu and persistent data
 import { initMenu } from './menu.js';
-import { ROOMS_KEY, HISTORY_KEY } from './data/constants.js';
-import { readRooms, writeRooms } from './data/storage.js';
-import { fetchMatchHistoryWithJoin, deleteMatch } from './data/database.js';
-
-// Game logic
+import { getSession } from './auth.js';
+import {
+  ROOMS_KEY,
+  HISTORY_KEY,
+} from './data/constants.js';
+import {
+  readRooms,
+  writeRooms
+} from './data/storage.js';
+import {
+  fetchMatchHistoryWithJoin,
+  deleteMatch
+} from './data/database.js';
 import { scene, camera, renderer } from './game/world.js';
 import { players } from './game/players.js';
 import { state } from './game/state.js';
@@ -55,10 +63,33 @@ async function renderMatchHistory() {
   const requestId = ++historyRequestId;
   historyFetchFailed = false;
 
+  const session = getSession();
+  const isRegistered = (session?.role === 'admin' || session?.role === 'user') && Boolean(session?.id);
+  const isAdmin = session?.role === 'admin';
+  const historyPanel = historyList.closest('.card, section, div') || historyList;
+
+  // 1. Block Guests completely
+  if (!isRegistered) {
+    historyList.innerHTML = '';
+    historyPanel.style.display = 'none';
+    return;
+  }
+
+  // 2. Show Match History for both 'admin' (all games) and 'user' (only their games)
+  historyPanel.style.display = '';
+
   try {
-    const matches = await fetchMatchHistoryWithJoin();
-    if (requestId !== historyRequestId) return; // a newer request took over
+    const matches = await fetchMatchHistoryWithJoin(session.id);
+    if (requestId !== historyRequestId) return;
+
     renderHistoryList(historyList, matches);
+
+    // 3. Remove delete buttons for regular 'user' accounts (only admins can delete)
+    if (!isAdmin) {
+      historyList.querySelectorAll('button, [data-delete], .delete-btn, .btn-danger').forEach(btn => {
+        btn.remove();
+      });
+    }
   } catch (error) {
     if (requestId !== historyRequestId) return;
     historyFetchFailed = true;
@@ -68,11 +99,20 @@ async function renderMatchHistory() {
 }
 
 async function deleteMatchRecord(matchId) {
-  await deleteMatch(matchId);
+  const session = getSession();
+  if (session?.role !== 'admin' || !session?.id) {
+    showLobbyMessage('Only admins can delete matches.', true);
+    return;
+  }
+
+  await deleteMatch(matchId, session.id);
   showLobbyMessage('Match deleted.');
   await renderMatchHistory();
 }
 
+// Re-check user/admin status whenever login/logout/guest happens in menu.js
+window.addEventListener('auth-changed', () => {
+  void renderMatchHistory();
 // Lobby
 
 

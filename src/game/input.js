@@ -1,6 +1,8 @@
 export const pressedKeys = {};
 
 window.addEventListener('keydown', event => {
+  if (!event.code) return;
+
   pressedKeys[event.code] = true;
 
   // Prevent page scrolling
@@ -10,5 +12,6 @@ window.addEventListener('keydown', event => {
 });
 
 window.addEventListener('keyup', event => {
+  if (!event.code) return;
   pressedKeys[event.code] = false;
 });

@@ -1,68 +1,57 @@
-// auth.js: PLACEHOLDER auth layer.
-//
-// FOR WHOEVER BUILDS THE DATABASE: replace the bodies of registerUser,
-// loginUser and logout with real API calls. Keep the same function names,
-// arguments and behavior (resolve on success, throw an Error with a
-// user-friendly message on failure) and the menu UI needs no changes.
-//h
+// auth.js: Supabase custom auth layer linked to public.users.
 
-// The localStorage version below only exists so the menu is usable today.
-// It is NOT secure: never ship it as real authentication.
+import { supabase } from './supabaseClient.js';
 
-const USERS_KEY = 'cone-clash-users';
 const SESSION_KEY = 'cone-clash-session';
-
-function readUsers() {
-  const raw = localStorage.getItem(USERS_KEY);
-  return raw ? JSON.parse(raw) : {};
-}
-
-async function hash(text) {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return [...new Uint8Array(digest)]
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 function saveSession(session) {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  window.dispatchEvent(new Event('auth-changed'));
   return session;
 }
 
-// Create an account. Throws if the username is taken.
-// TODO(db): POST { username, password } to your register endpoint.
+// Create an account directly in Supabase public.users (always gets role = 'user').
 export async function registerUser({ username, password }) {
-  const users = readUsers();
-  const key = username.toLowerCase();
+  const { data, error } = await supabase.rpc('register_custom_user', {
+    p_username: username,
+    p_password: password
+  });
 
-  if (users[key]) throw new Error('That username is already taken.');
-
-  users[key] = {
-    username,
-    passwordHash: await hash(password),
-    createdAt: new Date().toISOString()
-  };
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-
-  return { username };
-}
-
-// Log in. Throws on wrong credentials. Returns the session object.
-// TODO(db): POST { username, password } to your login endpoint.
-export async function loginUser({ username, password }) {
-  const user = readUsers()[username.toLowerCase()];
-
-  if (!user || user.passwordHash !== await hash(password)) {
-    throw new Error('Wrong username or password.');
+  if (error) {
+    throw new Error(error.message || 'Registration failed.');
   }
 
-  return saveSession({ type: 'user', username: user.username });
+  return { id: data.id, username: data.username, role: data.role };
+}
+
+// Log in against Supabase public.users (works for both 'admin' and 'user').
+export async function loginUser({ username, password }) {
+  const { data, error } = await supabase.rpc('login_custom_user', {
+    p_username: username,
+    p_password: password
+  });
+
+  if (error) {
+    throw new Error(error.message || 'Wrong username or password.');
+  }
+
+  // Keeps 'type' compatible with existing menu UI while storing id & role for admin checks
+  return saveSession({
+    type: data.role,      // 'admin' or 'user'
+    role: data.role,      // 'admin' or 'user'
+    id: data.id,          // UUID from public.users
+    username: data.username
+  });
 }
 
 // Guests are never sent to the database.
 export function playAsGuest() {
-  return saveSession({ type: 'guest', username: null });
+  return saveSession({
+    type: 'guest',
+    role: 'guest',
+    id: null,
+    username: null
+  });
 }
 
 // Who is signed in right now (survives a page reload, not a closed tab).
@@ -71,7 +60,7 @@ export function getSession() {
   return raw ? JSON.parse(raw) : null;
 }
 
-// TODO(db): also invalidate the token/cookie on the server if you add one.
 export function logout() {
   sessionStorage.removeItem(SESSION_KEY);
+  window.dispatchEvent(new Event('auth-changed'));
 }
