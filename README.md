@@ -1,3 +1,4 @@
+
 # 🚧 Cone Clash
 
 <img width="450" height="450" alt="Bonjour Traffic GIF" src="https://github.com/user-attachments/assets/96c91d60-fd94-420f-b2e4-2e42a94a0b7e" />
@@ -14,9 +15,9 @@ Built with **Three.js**, **Bootstrap**, and **Supabase**.
 
 ## How to play
 
-1. **Create a room**: pick a room name, a username, a color, and (optionally) an avatar.
-2. **Add players**: up to 3 players can join a room. At least 2 are needed to start.
-3. **Get ready**: every player clicks **I'M READY** on the "How to play" screen.
+1. **Create a room**: Pick a room name, a username, a color, and (optionally) an avatar.
+2. **Add players**: Up to 3 players can join a room. At least 2 are needed to start.
+3. **Get ready**: Every player clicks **I'M READY** on the "How to play" screen.
 4. When the countdown hits **GO**:
    - Dash from your base to the center and press your **action key** near a cone to pick it up.
    - Carry **one cone at a time** back to your own base and press your action key to drop it off.
@@ -70,7 +71,7 @@ npm install
 
 Create a `.env` file in the project root with your Supabase credentials. Check `src/supabaseClient.js` for the exact variable names it reads. Vite projects usually use:
 
-```
+```env
 VITE_SUPABASE_URL=your-project-url
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 ```
@@ -110,6 +111,20 @@ npm run preview
 
 ---
 
+## Testing Credentials
+
+Use the following test account of admin and user to verify the login functionality.
+
+| Role | Username | Password |
+|---|---|---|
+| Admin | `admin01` | `adminkawow` |
+| User | `phloem11` | `phloemdel` |
+
+
+> **Note:** Replace the placeholders with the actual test accounts configured in Supabase. These are not predefined accounts. Do not publish real production passwords or sensitive credentials in a public repository.
+
+---
+
 ## Deployment
 
 The game is deployed on [Vercel](https://vercel.com/).
@@ -119,7 +134,7 @@ The game is deployed on [Vercel](https://vercel.com/).
 3. Vercel detects Vite automatically. The defaults should be:
    - **Build command:** `npm run build`
    - **Output directory:** `dist`
-4. Under **Settings → Environment Variables**, add the same Supabase variables from your local `.env` file (for example `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`).
+4. Under **Settings → Environment Variables**, add the same Supabase variables from your local `.env` file (for example, `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`).
 5. Click **Deploy**. Every push to the main branch redeploys automatically.
 
 > Your `.env` file is not uploaded to GitHub, so Vercel will not see it. If you add or change an environment variable in Vercel, you must **redeploy** for it to take effect.
@@ -130,7 +145,7 @@ In your Supabase dashboard, also add your Vercel URL under **Authentication → 
 
 ## Project structure
 
-```
+```text
 src/
 ├── main.js              # Entry point: wires everything together
 ├── menu.js              # Menu setup
@@ -171,8 +186,8 @@ src/
 
 ### Design notes
 
-- **Shared state:** values that many files need to change (like `gameStarted` or `matchRound`) live in one `state` object in `game/state.js`.
-- **No circular imports:** when a file needs to call a function that lives in `main.js`, `main.js` passes it in (for example `setupLobbyHandlers({ renderLobby, startMatch, deleteMatchRecord })`).
+- **Shared state:** Values that many files need to change (like `gameStarted` or `matchRound`) live in one `state` object in `game/state.js`.
+- **No circular imports:** When a file needs to call a function that lives in `main.js`, `main.js` passes it in (for example, `setupLobbyHandlers({ renderLobby, startMatch, deleteMatchRecord })`).
 - **Game files don't touch the screen directly** where possible. `interaction.js` reports scoring through callbacks, and the `ui/` folder handles drawing.
 
 ---
