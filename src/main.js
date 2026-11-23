@@ -1,5 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { initMenu } from './menu.js';
+import { getSession } from './auth.js';
 import {
   ROOMS_KEY,
   HISTORY_KEY,
@@ -95,10 +96,33 @@ async function renderMatchHistory() {
   const requestId = ++historyRequestId;
   historyFetchFailed = false;
 
+  const session = getSession();
+  const isRegistered = (session?.role === 'admin' || session?.role === 'user') && Boolean(session?.id);
+  const isAdmin = session?.role === 'admin';
+  const historyPanel = historyList.closest('.card, section, div') || historyList;
+
+  // 1. Block Guests completely
+  if (!isRegistered) {
+    historyList.innerHTML = '';
+    historyPanel.style.display = 'none';
+    return;
+  }
+
+  // 2. Show Match History for both 'admin' (all games) and 'user' (only their games)
+  historyPanel.style.display = '';
+
   try {
-    const matches = await fetchMatchHistoryWithJoin();
+    const matches = await fetchMatchHistoryWithJoin(session.id);
     if (requestId !== historyRequestId) return;
+
     renderHistoryList(historyList, matches);
+
+    // 3. Remove delete buttons for regular 'user' accounts (only admins can delete)
+    if (!isAdmin) {
+      historyList.querySelectorAll('button, [data-delete], .delete-btn, .btn-danger').forEach(btn => {
+        btn.remove();
+      });
+    }
   } catch (error) {
     if (requestId !== historyRequestId) return;
     historyFetchFailed = true;
@@ -108,11 +132,21 @@ async function renderMatchHistory() {
 }
 
 async function deleteMatchRecord(matchId) {
-  await deleteMatch(matchId);
+  const session = getSession();
+  if (session?.role !== 'admin' || !session?.id) {
+    showLobbyMessage('Only admins can delete matches.', true);
+    return;
+  }
+
+  await deleteMatch(matchId, session.id);
   showLobbyMessage('Match deleted.');
   await renderMatchHistory();
 }
 
+// Re-check user/admin status whenever login/logout/guest happens in menu.js
+window.addEventListener('auth-changed', () => {
+  void renderMatchHistory();
+});
 
 document.querySelector('#leave-match').addEventListener('click', leaveMatch);
 document.querySelector('#ready-leave').addEventListener('click', leaveMatch);
@@ -161,7 +195,7 @@ function animate() {
     }
 
     players.forEach(player => {
-    movePlayer(player, delta, elapsedTime);
+      movePlayer(player, delta, elapsedTime);
     });
   }
 
