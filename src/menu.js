@@ -11,11 +11,35 @@ const BUBBLES = `
   </div>`;
 
 function field(id, name, label, type, extra = '') {
+<<<<<<< HEAD
+  const passwordToggle = type === 'password' ? `
+        <button type="button" class="password-toggle" aria-label="Show password"
+                aria-controls="${id}" aria-pressed="false">
+          <svg class="password-icon-show" aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <svg class="password-icon-hide" aria-hidden="true" viewBox="0 0 24 24" hidden>
+            <path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+            <path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c6.4 0 10 7 10 7a14.6 14.6 0 0 1-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.7 10.7 0 0 0 4-.8" />
+          </svg>
+        </button>` : '';
+
+  return `
+    <div>
+      <label class="form-label fw-bold small text-uppercase text-body-secondary" for="${id}">${label}</label>
+      <div class="${passwordToggle ? 'password-field' : ''}">
+        <input id="${id}" name="${name}" type="${type}"
+               class="form-control form-control-lg rounded-pill border-2${passwordToggle ? ' pe-5' : ''}" ${extra} required>
+        ${passwordToggle}
+      </div>
+=======
   return `
     <div>
       <label class="form-label fw-bold small text-uppercase text-body-secondary" for="${id}">${label}</label>
       <input id="${id}" name="${name}" type="${type}"
              class="form-control form-control-lg rounded-pill border-2" ${extra} required>
+>>>>>>> origin/main
     </div>`;
 }
 
@@ -54,9 +78,15 @@ const MENU_HTML = `
             </button>
           </div>
 
+<<<<<<< HEAD
+          <form id="menu-login" class="hidden d-grid gap-3">
+            <h2 class="h5 fw-bold text-uppercase text-success-emphasis mb-0">Login</h2>
+            ${field('login-username', 'username', 'Username', 'text', 'maxlength="50" autocomplete="username"')}
+=======
           <form id="menu-login" class="menu-view hidden d-grid gap-3">
             <h2 class="h5 fw-bold text-uppercase text-success-emphasis mb-0">Login</h2>
             ${field('login-username', 'username', 'Username', 'text', 'maxlength="16" autocomplete="username"')}
+>>>>>>> origin/main
             ${field('login-password', 'password', 'Password', 'password', 'autocomplete="current-password"')}
             <button type="submit" class="btn btn-success btn-lg fw-bold rounded-pill text-uppercase btn-pop">
               Log in
@@ -64,7 +94,11 @@ const MENU_HTML = `
             <button type="button" class="menu-back btn btn-link text-body-secondary">Back</button>
           </form>
 
+<<<<<<< HEAD
+          <form id="menu-register" class="hidden d-grid gap-3">
+=======
           <form id="menu-register" class="menu-view hidden d-grid gap-3">
+>>>>>>> origin/main
             <h2 class="h5 fw-bold text-uppercase text-primary-emphasis mb-0">Create account</h2>
             ${field('register-username', 'username', 'Username', 'text', 'minlength="3" maxlength="16" autocomplete="username"')}
             ${field('register-password', 'password', 'Password', 'password', 'minlength="6" autocomplete="new-password"')}
@@ -122,6 +156,15 @@ export function initMenu() {
   }
 
   function enterLobby(session) {
+<<<<<<< HEAD
+    // Redirect administrators straight to admin.html
+    if (session.type === 'admin') {
+      window.location.replace('/admin.html');
+      return;
+    }
+
+=======
+>>>>>>> origin/main
     const isGuest = session.type === 'guest';
 
     menu.classList.add('hidden');
@@ -167,6 +210,22 @@ export function initMenu() {
     });
   });
 
+<<<<<<< HEAD
+  menu.querySelectorAll('.password-toggle').forEach(button => {
+    button.addEventListener('click', () => {
+      const input = document.getElementById(button.getAttribute('aria-controls'));
+      const isVisible = input.type === 'text';
+
+      input.type = isVisible ? 'password' : 'text';
+      button.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+      button.setAttribute('aria-pressed', String(!isVisible));
+      button.querySelector('.password-icon-show').hidden = !isVisible;
+      button.querySelector('.password-icon-hide').hidden = isVisible;
+    });
+  });
+
+=======
+>>>>>>> origin/main
   registerForm.addEventListener('submit', event => {
     event.preventDefault();
     submitForm(registerForm, async data => {
@@ -186,12 +245,21 @@ export function initMenu() {
     });
   });
 
+<<<<<<< HEAD
+  sessionButton.addEventListener('click', async () => {
+    await logout();
+    showMenu();
+  });
+
+  // After a reload, restore the saved session (or redirect admin to admin.html)
+=======
   sessionButton.addEventListener('click', () => {
     logout();
     showMenu();
   });
 
   // After a reload (e.g. "Back to lobby") skip the menu if already signed in
+>>>>>>> origin/main
   const session = getSession();
   if (session) enterLobby(session);
   else showMenu();
