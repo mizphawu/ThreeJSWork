@@ -1,66 +1,48 @@
 import confetti from 'canvas-confetti';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { supabase } from './supabaseClient.js';
 import { initMenu } from './menu.js';
+import {
+  PLAYER_COLORS,
+  ROOMS_KEY,
+  HISTORY_KEY,
+  MAX_PLAYERS,
+  ROUNDS_TO_WIN_MATCH,
+  playerConfigs
+} from './data/constants.js';
+import {
+  escapeHtml,
+  makeId,
+  validateColor,
+  validateName,
+} from './data/helpers.js';
+import {
+  readRooms,
+  writeRooms,
+  readHistory,
+  writeHistory
+} from './data/storage.js';
+import {
+  fetchMatchHistoryWithJoin,
+  deleteMatch,
+  registerPlayerWithAvatar,
+  saveCompletedMatchToCloud
+} from './data/database.js';
+import { scene, camera, renderer } from './game/world.js';
+import { createPlayer, createPlayerBase, players } from './game/players.js';
+import { interact } from './game/interaction.js';
+import {
+  centerCones,
+  createCenterCones,
+  shuffleCones,
+  animateCones,
+  disposeCone
+} from './game/cones.js';
+import './game/input.js';
+import { movePlayer } from './game/movement.js';
+import { state } from './game/state.js';
+
 import './style.css';
 import * as THREE from 'three';
-
-// 1. SCENE SETUP
-
-const scene = new THREE.Scene();
-const skyColor = getComputedStyle(document.documentElement)
-  .getPropertyValue('--bs-info-bg-subtle').trim() || '#cff4fc';
-scene.background = new THREE.Color(skyColor);
-
-const camera = new THREE.PerspectiveCamera(
-  55,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-
-camera.position.set(0, 19, 19);
-camera.lookAt(0, 0, 0);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-
-document.querySelector('#game-container').appendChild(renderer.domElement);
-
-// 2. LIGHTING
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
-scene.add(ambientLight);
-
-const sunlight = new THREE.DirectionalLight(0xffffff, 2);
-sunlight.position.set(5, 15, 5);
-sunlight.castShadow = true;
-scene.add(sunlight);
-
-// 3. ARENA
-
-const ground = new THREE.Mesh(
-  new THREE.BoxGeometry(20, 0.2, 16),
-  new THREE.MeshStandardMaterial({ color: 0x354b42 })
-);
-
-ground.position.y = -0.1;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Center circle
-const centerCircle = new THREE.Mesh(
-  new THREE.CircleGeometry(2.2, 48),
-  new THREE.MeshStandardMaterial({ color: 0x607a62 })
-);
-
-centerCircle.rotation.x = -Math.PI / 2;
-centerCircle.position.y = 0.015;
-scene.add(centerCircle);
-
-// 4. GAME UI
 
 const ui = document.createElement('div');
 
@@ -193,19 +175,6 @@ ui.innerHTML = `
 document.body.appendChild(ui);
 initMenu();
 
-const PLAYER_COLORS = [
-  { name: 'Red', hex: '#ff5252' },
-  { name: 'Pink', hex: '#ff6fa8' },
-  { name: 'Magenta', hex: '#e040fb' },
-  { name: 'Purple', hex: '#a855f7' },
-  { name: 'Indigo', hex: '#6366f1' },
-  { name: 'Blue', hex: '#4287ff' },
-  { name: 'Teal', hex: '#14b8a6' },
-  { name: 'Lime', hex: '#84cc16' },
-  { name: 'Yellow', hex: '#ffd447' },
-  { name: 'Lavender', hex: '#c4b5fd' },
-];
-
 function colorPicker(fieldName, idPrefix, takenColors = []) {
   const taken = new Set(takenColors);
   const selected = PLAYER_COLORS.find(color => !taken.has(color.hex));
@@ -229,443 +198,28 @@ function colorPicker(fieldName, idPrefix, takenColors = []) {
 // Fill the create-room picker (placeholder is added in step 2)
 document.querySelector('#create-color-picker').innerHTML = colorPicker('playerColor', 'create-color');
 
-// 5. PLAYER DATA
-
-const playerConfigs = [
-  {
-    name: 'PLAYER 1',
-    color: 0xff5252,
-    position: [0, 0, -6.5],
-    keys: {
-      up: 'KeyW',
-      down: 'KeyS',
-      left: 'KeyA',
-      right: 'KeyD',
-      action: 'KeyE'
-    }
-  },
-  {
-    name: 'PLAYER 2',
-    color: 0x4287ff,
-    position: [-5.6, 0, 3.25],
-    keys: {
-      up: 'ArrowUp',
-      down: 'ArrowDown',
-      left: 'ArrowLeft',
-      right: 'ArrowRight',
-      action: 'Enter'
-    }
-  },
-  {
-    name: 'PLAYER 3',
-    color: 0xffd447,
-    position: [5.6, 0, 3.25],
-    keys: {
-      up: 'KeyI',
-      down: 'KeyK',
-      left: 'KeyJ',
-      right: 'KeyL',
-      action: 'KeyO'
-    }
-  }
-];
-
-const players = [];
-
-function createPlayer(config, index, name, color = config.color) {
-  const playerColor = Number.parseInt(color.replace('#', ''), 16);
-  const group = new THREE.Group();
-
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(0.55, 0.7, 4, 8),
-    new THREE.MeshStandardMaterial({ color: playerColor })
-  );
-
-  body.position.y = 0.9;
-  body.castShadow = true;
-  group.add(body);
-
-  // Player marker
-  const marker = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.85, 0.85, 0.08, 32),
-    new THREE.MeshStandardMaterial({ color: playerColor })
-  );
-
-  marker.position.y = 0.1;
-  group.add(marker);
-
-  group.position.set(...config.position);
-
-  scene.add(group);
-
-  return {
-    name,
-    color: playerColor,
-    mesh: group,
-    keys: config.keys,
-    ready: false,
-    speed: 5,
-    speedMultiplier: 1,
-    carriedCone: null,
-    baseCones: [],
-    roundWins: 0,
-    basePosition: new THREE.Vector3(
-      config.position[0],
-      0,
-      config.position[2]
-    ),
-    index
-  };
-}
-
-// 6. PLAYER BASES
-
-function createPlayerBase(player) {
-  const base = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.8, 1.8, 0.2, 32),
-    new THREE.MeshStandardMaterial({
-      color: player.color
-    })
-  );
-
-  base.position.copy(player.basePosition);
-  base.position.y = 0.05;
-
-  base.receiveShadow = true;
-  scene.add(base);
-}
-
-// 7. CONE CREATION
-
-const centerCones = [];
-
-function createCone(speedMultiplier = 1) {
-  const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(0.4, 1.1, 16),
-    new THREE.MeshStandardMaterial({
-      color: 0xff8c32
-    })
-  );
-
-  cone.position.y = 0.65;
-  cone.castShadow = true;
-
-  cone.userData.speedMultiplier = speedMultiplier;
-  cone.userData.phase = Math.random() * Math.PI * 2;
-  cone.userData.shuffle = null;
-  cone.userData.restY = 0.65;
-
-  return cone;
-}
-
-const initialConePositions = [
-  [-1.2, 0, -0.8],
-  [0, 0, -1],
-  [1.2, 0, -0.8],
-  [-0.7, 0, 0.8],
-  [0.7, 0, 0.8]
-];
-
-function createCenterCones() {
-  initialConePositions.forEach(position => {
-    const multiplier = Math.random() < 0.5 ? 0.7 : 1.3;
-    const cone = createCone(multiplier);
-    cone.position.set(position[0], 0.65, position[2]);
-    scene.add(cone);
-    centerCones.push(cone);
-  });
-}
-
-createCenterCones();
-
-function distanceXZ(a, b) {
-  return Math.hypot(a.x - b.x, a.z - b.z);
-}
-
-function chooseShufflePositions(cones) {
-  const targets = [];
-  const minSpacing = 1.35;
-  const bounds = { minX: -4.5, maxX: 4.5, minZ: -3.4, maxZ: 3.4 };
-
-  cones.forEach(cone => {
-    let target = null;
-
-    for (let attempt = 0; attempt < 80; attempt++) {
-      const candidate = new THREE.Vector3(
-        THREE.MathUtils.randFloat(bounds.minX, bounds.maxX),
-        0.65,
-        THREE.MathUtils.randFloat(bounds.minZ, bounds.maxZ)
-      );
-      const clearOfTargets = targets.every(
-        position => distanceXZ(candidate, position) >= minSpacing
-      );
-      const movedEnough = distanceXZ(candidate, cone.position) > 0.8;
-
-      if (clearOfTargets && movedEnough) {
-        target = candidate;
-        break;
-      }
-    }
-
-    targets.push(target ?? cone.position.clone());
-  });
-
-  return targets;
-}
-
-function shuffleCones(elapsedTime) {
-  const targets = chooseShufflePositions(centerCones);
-
-  centerCones.forEach((cone, index) => {
-    cone.userData.shuffle = {
-      from: cone.position.clone(),
-      to: targets[index],
-      startedAt: elapsedTime,
-      duration: 1.15 + Math.random() * 0.45
-    };
-  });
-}
-
-function animateCones(elapsedTime) {
-  centerCones.forEach(cone => {
-    const shuffle = cone.userData.shuffle;
-
-    if (shuffle) {
-      const progress = THREE.MathUtils.clamp(
-        (elapsedTime - shuffle.startedAt) / shuffle.duration,
-        0,
-        1
-      );
-      const eased = progress * progress * (3 - 2 * progress);
-      cone.position.lerpVectors(shuffle.from, shuffle.to, eased);
-      cone.position.y += Math.sin(progress * Math.PI) * 0.85;
-
-      if (progress === 1) {
-        cone.userData.shuffle = null;
-        cone.userData.restY = shuffle.to.y;
-      }
-    } else {
-      cone.position.y =
-        cone.userData.restY +
-        Math.sin(elapsedTime * 2.4 + cone.userData.phase) * 0.12;
-    }
-
-    cone.rotation.y += 0.018;
-    cone.rotation.z = Math.sin(elapsedTime * 1.8 + cone.userData.phase) * 0.06;
-  });
-}
-
 // 8. KEYBOARD INPUT
 
-const pressedKeys = {};
 
 window.addEventListener('keydown', event => {
-  pressedKeys[event.code] = true;
-
-  // Prevent page scrolling
-  if (event.code.startsWith('Arrow') || event.code === 'Space') {
-    event.preventDefault();
-  }
-
-  // Interaction
   players.forEach(player => {
     if (
       event.code === player.keys.action &&
       !event.repeat &&
-      gameStarted &&
-      !gameOver
+      state.gameStarted &&
+      !state.gameOver
     ) {
-      interact(player);
+      interact(player, { onScoreChange: updateScores, onWin: endGame });
     }
   });
 });
-
-window.addEventListener('keyup', event => {
-  pressedKeys[event.code] = false;
-});
-
-// 9. PICK UP, DEPOSIT AND STEAL
-
-function interact(player) {
-
-  // If carrying a cone, deposit it at your own base
-  if (player.carriedCone) {
-
-    const distance = player.mesh.position.distanceTo(
-      player.basePosition
-    );
-
-    if (distance < 2.3) {
-      const cone = player.carriedCone;
-
-      player.baseCones.push(cone);
-      player.carriedCone = null;
-      player.speedMultiplier = 1;
-
-      updateBaseCones(player);
-      updateScores();
-
-      // First player to reach three wins
-      if (player.baseCones.length >= 3) {
-        endGame(player);
-      }
-    }
-
-    return;
-  }
-
-  // Find the closest available cone in the center
-  let closestCone = null;
-  let closestDistance = Infinity;
-  let sourceArray = null;
-  let sourcePlayer = null;
-
-  centerCones.forEach(cone => {
-    const distance = distanceXZ(player.mesh.position, cone.position);
-
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestCone = cone;
-      sourceArray = centerCones;
-      sourcePlayer = null;
-    }
-  });
-
-  // Check opponent bases for stealable cones
-  players.forEach(opponent => {
-
-    if (opponent === player) return;
-
-    opponent.baseCones.forEach(cone => {
-      const distance = distanceXZ(player.mesh.position, opponent.basePosition);
-
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestCone = cone;
-        sourceArray = opponent.baseCones;
-        sourcePlayer = opponent;
-      }
-    });
-  });
-
-  // Pick up only if close enough
-  if (closestCone && closestDistance < 1.8) {
-
-    sourceArray.splice(sourceArray.indexOf(closestCone), 1);
-
-    player.carriedCone = closestCone;
-
-    // Heavy cones speed up, light cones slow down
-    player.speedMultiplier = closestCone.userData.speedMultiplier;
-
-    // Show the cone floating above the player's head
-    scene.add(closestCone);
-    closestCone.scale.setScalar(0.8);
-    closestCone.rotation.set(0, 0, 0);
-
-    // Update the stolen-from player's base
-    if (sourcePlayer) {
-      updateBaseCones(sourcePlayer);
-    }
-
-    updateScores();
-  }
-}
-
-// 10. UPDATE CONE POSITIONS
-
-function updateBaseCones(player) {
-
-  player.baseCones.forEach((cone, index) => {
-
-    scene.add(cone);
-    cone.material.color.setHex(player.color);
-    cone.scale.setScalar(1);
-    cone.rotation.set(0, 0, 0);
-
-    const angle = index * 1.2;
-
-    cone.position.set(
-      player.basePosition.x + Math.cos(angle) * 0.8,
-      0.65,
-      player.basePosition.z + Math.sin(angle) * 0.8
-    );
-  });
-}
-
-// 11. PLAYER MOVEMENT
-
-function movePlayer(player, delta) {
-
-  if (!gameStarted || gameOver) return;
-
-  const keys = player.keys;
-
-  const direction = new THREE.Vector3();
-
-  if (pressedKeys[keys.up]) direction.z -= 1;
-  if (pressedKeys[keys.down]) direction.z += 1;
-  if (pressedKeys[keys.left]) direction.x -= 1;
-  if (pressedKeys[keys.right]) direction.x += 1;
-
-  if (direction.length() > 0) {
-
-    direction.normalize();
-
-    const movementSpeed =
-      player.speed * player.speedMultiplier;
-
-    player.mesh.position.addScaledVector(
-      direction,
-      movementSpeed * delta
-    );
-
-    // Rotate character toward movement direction
-    player.mesh.rotation.y = Math.atan2(
-      direction.x,
-      direction.z
-    );
-  }
-
-  // Arena boundaries
-  player.mesh.position.x = THREE.MathUtils.clamp(
-    player.mesh.position.x,
-    -9,
-    9
-  );
-
-  player.mesh.position.z = THREE.MathUtils.clamp(
-    player.mesh.position.z,
-    -7,
-    7
-  );
-
-  // Keep carried cone above player
-    // Carried cone floats above the head, bobbing and spinning
-  if (player.carriedCone) {
-    player.carriedCone.position.set(
-      player.mesh.position.x,
-      2.6 + Math.sin(clock.elapsedTime * 5) * 0.12,
-      player.mesh.position.z
-    );
-    player.carriedCone.rotation.y += 0.05;
-  }
-}
-
-// SCOREBOARD
-
-let currentRoom = null;
-let matchRound = 1;
-const ROUNDS_TO_WIN_MATCH = 2;
-let roundWasTied = false;
-let matchComplete = false;
 
 function updateMatchStatus() {
   const seriesScore = players
     .map(player => `${escapeHtml(player.name)} ${player.roundWins}`)
     .join(' : ');
   document.querySelector('#match-status').textContent =
-    `ROUND ${matchRound} · SERIES ${seriesScore}`;
+    `ROUND ${state.matchRound} · SERIES ${seriesScore}`;
 }
 
 function updateScores() {
@@ -678,12 +232,12 @@ function updateScores() {
     </div>
   `).join('');
 
-  if (currentRoom) {
+  if (state.currentRoom) {
     try {
       const rooms = readRooms();
-      const room = rooms.find(item => item.id === currentRoom.id);
+      const room = rooms.find(item => item.id === state.currentRoom.id);
       if (room) {
-        room.round = matchRound;
+        room.round = state.matchRound;
         room.players = players.map(player => {
           const roomPlayer = room.players.find(item => item.id === player.id);
           return {
@@ -707,33 +261,25 @@ updateScores();
 
 // 13. GAME TIMER
 
-let countdown = 3;
-let gameTime = 45;
-
-let gameStarted = false;
-let gameOver = false;
-let matchElapsed = 0;
-let nextConeShuffleAt = 7;
-
 const countdownElement = document.querySelector('#countdown');
 const timerElement = document.querySelector('#timer');
 
 function startCountdown() {
 
-  countdownElement.textContent = countdown;
+  countdownElement.textContent = state.countdown;
 
   const interval = setInterval(() => {
 
-    countdown--;
+    state.countdown--;
 
-    if (countdown > 0) {
-      countdownElement.textContent = countdown;
+    if (state.countdown > 0) {
+      countdownElement.textContent = state.countdown;
     } else {
 
       clearInterval(interval);
 
       countdownElement.textContent = 'GO!';
-      gameStarted = true;
+      state.gameStarted = true;
 
       setTimeout(() => {
         countdownElement.textContent = '';
@@ -783,10 +329,10 @@ function clearConfetti() {
 
 function endGame(winner = null) {
 
-  if (gameOver) return;
+  if (state.gameOver) return;
 
-  gameOver = true;
-  gameStarted = false;
+  state.gameOver = true;
+  state.gameStarted = false;
   document.querySelector('#game-hud').classList.add('hidden');
 
   const rankings = [...players].sort(
@@ -795,7 +341,7 @@ function endGame(winner = null) {
   const roundLeader = winner ?? (rankings[0].baseCones.length > rankings[1].baseCones.length
     ? rankings[0]
     : null);
-  roundWasTied = !roundLeader;
+  state.roundWasTied = !roundLeader;
   if (roundLeader) roundLeader.roundWins++;
   updateScores();
   updateMatchStatus();
@@ -842,22 +388,22 @@ function endGame(winner = null) {
   const series = players.map(player => `${player.name} ${player.roundWins}`).join(' : ');
 
   if (matchWinner) {
-    matchComplete = true;
+    state.matchComplete = true;
     title.textContent = `${matchWinner.name} WINS THE MATCH!`;
     subtitle.textContent = `Final series: ${series}`;
     trophy.textContent = '🏆';
     document.querySelector('#restart').textContent = 'BACK TO LOBBY';
     completeCurrentRoom(displayRankings, matchWinner);
   } else if (roundLeader) {
-    title.textContent = `${roundLeader.name} WINS ROUND ${matchRound}!`;
+    title.textContent = `${roundLeader.name} WINS ROUND ${state.matchRound}!`;
     subtitle.textContent = `Series: ${series}`;
     trophy.textContent = '🎉';
-    document.querySelector('#restart').textContent = `START ROUND ${matchRound + 1}`;
+    document.querySelector('#restart').textContent = `START ROUND ${state.matchRound + 1}`;
   } else {
-    title.textContent = `ROUND ${matchRound} TIED!`;
+    title.textContent = `ROUND ${state.matchRound} TIED!`;
     subtitle.textContent = 'Nobody takes the cones this time.';
     trophy.textContent = '🤝';
-    document.querySelector('#restart').textContent = `REPLAY ROUND ${matchRound}`;
+    document.querySelector('#restart').textContent = `REPLAY ROUND ${state.matchRound}`;
   }
 
   // Confetti pops when the winner's step lands
@@ -876,7 +422,7 @@ function endGame(winner = null) {
 // 15. RESTART GAME
 
 document.querySelector('#restart').addEventListener('click', () => {
-  if (players.length && currentRoom && !matchComplete) {
+  if (players.length && state.currentRoom && !state.matchComplete) {
     startNextRound();
   } else {
     window.location.reload();
@@ -885,9 +431,6 @@ document.querySelector('#restart').addEventListener('click', () => {
 
 // 16. LOCAL ROOM LOBBY
 
-const ROOMS_KEY = 'cone-clash-rooms';
-const HISTORY_KEY = 'cone-clash-history';
-const MAX_PLAYERS = 3;
 const lobbyMessage = document.querySelector('#lobby-message');
 const appMessage = document.querySelector('#app-message');
 const roomList = document.querySelector('#room-list');
@@ -899,43 +442,6 @@ function showLobbyMessage(message, isError = false) {
   lobbyMessage.classList.toggle('text-success', !isError);
   appMessage.textContent = isError ? message : '';
   appMessage.classList.toggle('d-none', !isError);
-}
-
-function readCollection(key, label) {
-  const raw = localStorage.getItem(key);
-  if (raw === null) return [];
-
-  const value = JSON.parse(raw);
-  if (!Array.isArray(value)) {
-    throw new Error(`Saved ${label} data is invalid.`);
-  }
-  return value;
-}
-
-function readRooms() {
-  return readCollection(ROOMS_KEY, 'room');
-}
-
-function writeRooms(rooms) {
-  localStorage.setItem(ROOMS_KEY, JSON.stringify(rooms));
-}
-
-function readHistory() {
-  return readCollection(HISTORY_KEY, 'history');
-}
-
-function writeHistory(history) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, character => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[character]);
 }
 
 function withLobbyError(action) {
@@ -1020,36 +526,6 @@ function renderLobby() {
 let historyRequestId = 0;
 let historyFetchFailed = false;
 
-async function fetchMatchHistoryWithJoin() {
-  const { data, error } = await supabase
-    .from('matches')
-    .select(`
-      id,
-      room_name,
-      total_rounds,
-      ended_at,
-      match_participants (
-        round_wins,
-        is_winner,
-        players (
-          username,
-          favorite_color,
-          avatar_url
-        )
-      )
-    `)
-    .eq('status', 'completed')
-    .order('ended_at', { ascending: false })
-    .limit(10);
-
-  if (error) {
-    historyFetchFailed = true;
-    showLobbyMessage(`Failed to load history: ${error.message}`, true);
-    return [];
-  }
-  return data;
-}
-
 async function renderMatchHistory() {
   const requestId = ++historyRequestId;
   historyFetchFailed = false;
@@ -1103,14 +579,9 @@ async function renderMatchHistory() {
 }
 
 async function deleteMatchRecord(matchId) {
-  const { error } = await supabase.from('matches').delete().eq('id', matchId);
-  if (error) throw error;
+  await deleteMatch(matchId);
   showLobbyMessage('Match deleted.');
   await renderMatchHistory();
-}
-
-function makeId() {
-  return crypto.randomUUID();
 }
 
 function getPlayerColor(player, index) {
@@ -1119,54 +590,6 @@ function getPlayerColor(player, index) {
   }
   const color = playerConfigs[index % playerConfigs.length].color;
   return `#${color.toString(16).padStart(6, '0')}`;
-}
-
-function validateColor(value) {
-  if (typeof value !== 'string' || !/^#[\da-f]{6}$/i.test(value)) {
-    throw new Error('Choose a valid player color.');
-  }
-  return value.toLowerCase();
-}
-
-function validateName(value, label) {
-  const name = value.trim();
-  if (!name || name.length > 24) {
-    throw new Error(`${label} must be between 1 and 24 characters.`);
-  }
-  return name;
-}
-
-async function registerPlayerWithAvatar(username, color, avatarFile) {
-  let avatarUrl = null;
-
-  if (avatarFile && avatarFile.size > 0) {
-    if (!avatarFile.type.startsWith('image/')) {
-      throw new Error('Choose a valid image file for the avatar.');
-    }
-    const fileExt = avatarFile.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(fileName, avatarFile);
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-    avatarUrl = data.publicUrl;
-  }
-
-  const { data: player, error } = await supabase
-    .from('players')
-    .upsert(
-      { username, favorite_color: color, ...(avatarUrl && { avatar_url: avatarUrl }) },
-      { onConflict: 'username' }
-    )
-    .select()
-    .single();
-
-  if (error) throw error;
-  return player;
 }
 
 document.querySelector('#create-room-form').addEventListener('submit', event => {
@@ -1386,12 +809,12 @@ function startMatch(roomId) {
     player.roundWins = 0;
   });
   writeRooms(rooms);
-  currentRoom = room;
-  matchRound = 1;
-  roundWasTied = false;
-  matchComplete = false;
-  matchElapsed = 0;
-  nextConeShuffleAt = 7;
+  state.currentRoom = room;
+  state.matchRound = 1;
+  state.roundWasTied = false;
+  state.matchComplete = false;
+  state.matchElapsed = 0;
+  state.nextConeShuffleAt = 7;
 
   room.players.forEach((roomPlayer, index) => {
     const player = createPlayer(
@@ -1416,21 +839,15 @@ function startMatch(roomId) {
   hideWithAnimation(document.querySelector('#lobby')).then(showReadyScreen);
 }
 
-function disposeCone(cone) {
-  scene.remove(cone);
-  cone.geometry.dispose();
-  cone.material.dispose();
-}
-
 function beginRound() {
   clearConfetti();
-  gameOver = false;
-  gameStarted = false;
-  countdown = 3;
-  gameTime = 60;
-  matchElapsed = 0;
-  nextConeShuffleAt = 7;
-  timerElement.textContent = gameTime;
+  state.gameOver = false;
+  state.gameStarted = false;
+  state.countdown = 3;
+  state.gameTime = 60;
+  state.matchElapsed = 0;
+  state.nextConeShuffleAt = 7;
+  timerElement.textContent = state.gameTime;
   countdownElement.textContent = '';
   document.querySelector('#podium').classList.add('hidden');
   document.querySelector('#game-hud').classList.remove('hidden');
@@ -1440,7 +857,7 @@ function beginRound() {
 }
 
 function startNextRound() {
-  if (!roundWasTied) matchRound++;
+  if (!state.roundWasTied) state.matchRound++;
 
   centerCones.forEach(disposeCone);
   centerCones.length = 0;
@@ -1456,15 +873,15 @@ function startNextRound() {
   });
 
   createCenterCones();
-  roundWasTied = false;
+  state.roundWasTied = false;
   beginRound();
 }
 
 function completeCurrentRoom(rankings, winner) {
-  if (!currentRoom) return;
-  const completedRoom = currentRoom;
+  if (!state.currentRoom) return;
+  const completedRoom = state.currentRoom;
   const endedAt = new Date().toISOString();
-  currentRoom = null;
+  state.currentRoom = null;
 
   try {
     const rooms = readRooms().filter(room => room.id !== completedRoom.id);
@@ -1473,7 +890,7 @@ function completeCurrentRoom(rankings, winner) {
       id: completedRoom.id,
       roomName: completedRoom.name,
       endedAt,
-      round: matchRound,
+      round: state.matchRound,
       result: `Best of 3 · ${players.map(player => `${player.name} ${player.roundWins}`).join(' : ')}`,
       players: rankings.map(player => ({
         name: player.name,
@@ -1489,7 +906,7 @@ function completeCurrentRoom(rankings, winner) {
 
   void saveCompletedMatchToCloud(
     completedRoom.name,
-    matchRound,
+    state.matchRound,
     players,
     winner.dbId,
     endedAt
@@ -1498,43 +915,10 @@ function completeCurrentRoom(rankings, winner) {
   });
 }
 
-async function saveCompletedMatchToCloud(roomName, totalRounds, finalPlayers, winnerId, endedAt) {
-  if (finalPlayers.some(player => !player.dbId)) {
-    throw new Error('One or more players are missing their Supabase player record. Recreate the room to save cloud history.');
-  }
-
-  const { data: match, error: matchError } = await supabase
-    .from('matches')
-    .insert({
-      room_name: roomName,
-      status: 'completed',
-      total_rounds: totalRounds,
-      ended_at: endedAt
-    })
-    .select()
-    .single();
-
-  if (matchError) throw matchError;
-
-  const participantRows = finalPlayers.map(player => ({
-    match_id: match.id,
-    player_id: player.dbId,
-    round_wins: player.roundWins,
-    cones_collected: player.baseCones.length,
-    is_winner: player.dbId === winnerId
-  }));
-
-  const { error: participantError } = await supabase
-    .from('match_participants')
-    .insert(participantRows);
-
-  if (participantError) throw participantError;
-}
-
 function leaveMatch() {
-  if (!currentRoom) return;
+  if (!state.currentRoom) return;
   withLobbyError(() => {
-    writeRooms(readRooms().filter(room => room.id !== currentRoom.id));
+    writeRooms(readRooms().filter(room => room.id !== state.currentRoom.id));
     window.location.reload();
   });
 }
@@ -1547,9 +931,11 @@ window.addEventListener('storage', event => {
 });
 
 window.addEventListener('pagehide', () => {
-  if (!currentRoom) return;
-  writeRooms(readRooms().filter(room => room.id !== currentRoom.id));
+  if (!state.currentRoom) return;
+  writeRooms(readRooms().filter(room => room.id !== state.currentRoom.id));
 });
+
+createCenterCones();
 
 renderLobby();
 
@@ -1563,27 +949,27 @@ function animate() {
   const elapsedTime = clock.elapsedTime;
   animateCones(elapsedTime);
 
-  if (gameStarted && !gameOver) {
+  if (state.gameStarted && !state.gameOver) {
 
-    matchElapsed += delta;
-    if (matchElapsed >= nextConeShuffleAt) {
+    state.matchElapsed += delta;
+    if (state.matchElapsed >= state.nextConeShuffleAt) {
       shuffleCones(elapsedTime);
-      nextConeShuffleAt = matchElapsed + 8;
+      state.nextConeShuffleAt = state.matchElapsed + 8;
     }
 
-    gameTime -= delta;
+    state.gameTime -= delta;
 
     timerElement.textContent = Math.ceil(
-      Math.max(gameTime, 0)
+      Math.max(state.gameTime, 0)
     );
 
-    if (gameTime <= 0) {
-      gameTime = 0;
+    if (state.gameTime <= 0) {
+      state.gameTime = 0;
       endGame();
     }
 
     players.forEach(player => {
-      movePlayer(player, delta);
+    movePlayer(player, delta, elapsedTime);
     });
   }
 
@@ -1591,16 +977,3 @@ function animate() {
 }
 
 renderer.setAnimationLoop(animate);
-
-// 18. WINDOW RESIZE
-
-window.addEventListener('resize', () => {
-
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-  );
-});
