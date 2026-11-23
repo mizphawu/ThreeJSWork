@@ -1,9 +1,10 @@
 export function mountGameUi() {
-  const ui = document.createElement('div');
+  
+    const ui = document.createElement('div');
 
-ui.id = 'game-ui';
+    ui.id = 'game-ui';
 
-ui.innerHTML = `
+    ui.innerHTML = `
   <section id="lobby" class="position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2 bg-info-subtle bg-gradient">
   <div class="bubbles" aria-hidden="true">
   <span></span><span></span><span></span><span></span><span></span><span></span>
