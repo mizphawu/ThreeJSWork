@@ -1,3 +1,4 @@
+import confetti from 'canvas-confetti';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { supabase } from './supabaseClient.js';
 import { initMenu } from './menu.js';
@@ -7,7 +8,9 @@ import * as THREE from 'three';
 // 1. SCENE SETUP
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x18202c);
+const skyColor = getComputedStyle(document.documentElement)
+  .getPropertyValue('--bs-info-bg-subtle').trim() || '#cff4fc';
+scene.background = new THREE.Color(skyColor);
 
 const camera = new THREE.PerspectiveCamera(
   55,
@@ -64,7 +67,7 @@ const ui = document.createElement('div');
 ui.id = 'game-ui';
 
 ui.innerHTML = `
-  <section id="lobby" class="position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2 bg-gradient">
+  <section id="lobby" class="position-absolute top-0 start-0 w-100 h-100 overflow-auto py-4 px-2 bg-info-subtle bg-gradient">
   <div class="bubbles" aria-hidden="true">
   <span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
@@ -83,21 +86,19 @@ ui.innerHTML = `
       <div class="card-body p-4">
 
         <form id="create-room-form" class="row g-3 align-items-end bg-body-tertiary border border-2 rounded-4 p-3 mb-3">
-          <div class="col-12 col-md-5">
-            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="room-name">Room name</label>
-            <input id="room-name" name="roomName" class="form-control form-control-lg rounded-pill border-2"
-                   maxlength="24" placeholder="Friday match" required>
+          <div class="col-12 col-md-6">
+  <label class="form-label fw-bold small text-uppercase text-body-secondary" for="room-name">Room name</label>
+  <input id="room-name" name="roomName" class="form-control form-control-lg rounded-pill border-2"
+         maxlength="24" placeholder="Rubylin's Game" required>
+</div>
+<div class="col-12 col-md-6">
+  <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-name">Username</label>
+  <input id="create-player-name" name="playerName" class="form-control form-control-lg rounded-pill border-2"
+         maxlength="16" placeholder="Your name" required>
           </div>
-          <div class="col-8 col-md-4">
-            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-name">Username</label>
-            <input id="create-player-name" name="playerName" class="form-control form-control-lg rounded-pill border-2"
-                   maxlength="16" placeholder="Your name" required>
-          </div>
-          <div class="col-4 col-md-3">
-            <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-color">Color</label>
-            <input id="create-player-color" name="playerColor" type="color" value="#ff5252"
-                   class="form-control form-control-color form-control-lg w-100 rounded-pill border-2"
-                   aria-label="Choose your player and cone color">
+          <div class="col-12">
+          <div class="form-label fw-bold small text-uppercase text-body-secondary">Color</div>
+          <div id="create-color-picker"></div>
           </div>
           <div class="col-12">
             <label class="form-label fw-bold small text-uppercase text-body-secondary" for="create-player-avatar">Avatar (optional)</label>
@@ -130,7 +131,7 @@ ui.innerHTML = `
   <div id="game-hud" class="hidden">
     <div id="timer" class="position-absolute top-0 start-50 translate-middle-x mt-3 px-4 py-2 display-5 fw-bolder bg-body border border-3 rounded-4">45</div>
     <div id="match-status" class="badge text-bg-dark position-absolute start-50 translate-middle-x" style="top: 105px">ROUND 1 · REAL-TIME</div>
-    <div id="countdown" class="position-absolute start-50 translate-middle display-1 fw-black">GET READY!</div>
+    <div id="countdown" class="position-absolute start-50 translate-middle text-center display-1 fw-bolder px-5 py-2 rounded-5 border border-4 border-white shadow-lg bg-warning text-dark">GET READY!</div>
     <div id="scores" class="position-absolute top-0 start-0 m-3 p-3 rounded-3 bg-dark bg-opacity-75 fw-bold"></div>
 
     <div id="instructions" class="position-absolute bottom-0 start-50 translate-middle-x mb-3 px-3 py-2 rounded-3 bg-dark bg-opacity-75 small d-flex align-items-center gap-3">
@@ -139,11 +140,52 @@ ui.innerHTML = `
     </div>
   </div>
 
-  <div id="podium" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-center align-items-center gap-4 bg-black bg-opacity-90">
-    <h1 class="display-4 fw-bold text-warning text-center"></h1>
-    <div id="podium-content" class="d-flex flex-wrap justify-content-center align-items-end gap-3"></div>
-    <button id="restart" type="button" class="btn btn-warning btn-lg fw-bold px-5">BACK TO LOBBY</button>
+      <div id="podium" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 bg-black bg-opacity-75 podium-backdrop">
+    <div class="container" style="max-width: 640px">
+      <div class="card lobby-card podium-card border-0 rounded-5 shadow-lg overflow-hidden">
+
+        <div class="text-center py-4 px-3 border-bottom border-4 border-warning lobby-header">
+          <div id="podium-trophy" class="display-3 d-inline-block cone-bounce">🏆</div>
+          <h1 class="podium-title title-cute display-6 fw-bolder text-uppercase text-white mb-1"></h1>
+          <p id="podium-subtitle" class="text-body-secondary fw-medium mb-0"></p>
+        </div>
+
+        <div class="card-body px-4 pt-4 pb-2">
+          <div id="podium-content" class="row g-2 justify-content-center align-items-end text-center" style="height: 280px"></div>
+        </div>
+
+        <div class="p-4 pt-2">
+          <button id="restart" type="button" class="btn btn-warning btn-lg fw-bold w-100 rounded-pill text-uppercase btn-pop">
+            BACK TO LOBBY
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <section id="ready-screen" class="hidden position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center p-3 bg-black bg-opacity-50">
+  <div class="card border-0 rounded-5 shadow-lg overflow-hidden w-100" style="max-width: 640px">
+    <div class="text-center py-3 px-3 border-bottom border-4 border-warning lobby-header">
+      <h2 class="fs-2 fw-bolder text-uppercase mb-0 title-cute">
+        <span class="title-cone">How to</span> <span class="title-clash">play</span>
+      </h2>
+    </div>
+    <div class="card-body p-4">
+      <ul class="small ps-3 mb-3">
+        <li>When the countdown hits <strong>GO</strong>, dash from your base to the center and grab a cone with your action key.</li>
+        <li>Carry <strong>one cone at a time</strong> back to your own base and press your action key to drop it off.</li>
+        <li>Stand at a rival's base and press your action key to <strong>steal</strong> one of their cones, and protect yours.</li>
+        <li>Get 3 cones into your base, or have the most when time runs out, to win the round. First to 2 round wins takes the match.</li>
+      </ul>
+
+      <h3 class="h6 fw-bold text-uppercase text-body-secondary">Your capsules and controls</h3>
+      <div id="ready-players" class="mb-2"></div>
+
+      <div id="ready-status" class="text-center small fw-semibold text-body-secondary mb-3" role="status" aria-live="polite"></div>
+      <button id="ready-leave" type="button" class="btn btn-link text-body-secondary w-100">Leave match</button>
+    </div>
+  </div>
+</section>
 
   <div id="app-message" class="alert alert-danger position-absolute top-0 start-50 translate-middle-x mt-3 d-none" role="alert" aria-live="assertive"></div>
 `;
@@ -151,13 +193,49 @@ ui.innerHTML = `
 document.body.appendChild(ui);
 initMenu();
 
+const PLAYER_COLORS = [
+  { name: 'Red', hex: '#ff5252' },
+  { name: 'Pink', hex: '#ff6fa8' },
+  { name: 'Magenta', hex: '#e040fb' },
+  { name: 'Purple', hex: '#a855f7' },
+  { name: 'Indigo', hex: '#6366f1' },
+  { name: 'Blue', hex: '#4287ff' },
+  { name: 'Teal', hex: '#14b8a6' },
+  { name: 'Lime', hex: '#84cc16' },
+  { name: 'Yellow', hex: '#ffd447' },
+  { name: 'Lavender', hex: '#c4b5fd' },
+];
+
+function colorPicker(fieldName, idPrefix, takenColors = []) {
+  const taken = new Set(takenColors);
+  const selected = PLAYER_COLORS.find(color => !taken.has(color.hex));
+
+  return `
+    <div class="d-flex flex-wrap gap-2" role="radiogroup" aria-label="Choose your player and cone color">
+      ${PLAYER_COLORS.map(color => {
+        const id = `${idPrefix}-${color.hex.slice(1)}`;
+        const isTaken = taken.has(color.hex);
+        return `
+          <input type="radio" class="btn-check" name="${fieldName}" id="${escapeHtml(id)}"
+                 value="${color.hex}" ${color === selected ? 'checked' : ''} ${isTaken ? 'disabled' : ''}>
+          <label class="color-swatch rounded-circle border border-2 border-white" for="${escapeHtml(id)}"
+                 style="--swatch: ${color.hex}" title="${color.name}${isTaken ? ' (taken)' : ''}">
+            <span class="visually-hidden">${color.name}</span>
+          </label>`;
+      }).join('')}
+    </div>`;
+}
+
+// Fill the create-room picker (placeholder is added in step 2)
+document.querySelector('#create-color-picker').innerHTML = colorPicker('playerColor', 'create-color');
+
 // 5. PLAYER DATA
 
 const playerConfigs = [
   {
     name: 'PLAYER 1',
     color: 0xff5252,
-    position: [0, 0, -6],
+    position: [0, 0, -6.5],
     keys: {
       up: 'KeyW',
       down: 'KeyS',
@@ -169,7 +247,7 @@ const playerConfigs = [
   {
     name: 'PLAYER 2',
     color: 0x4287ff,
-    position: [-7, 0, 5],
+    position: [-5.6, 0, 3.25],
     keys: {
       up: 'ArrowUp',
       down: 'ArrowDown',
@@ -181,7 +259,7 @@ const playerConfigs = [
   {
     name: 'PLAYER 3',
     color: 0xffd447,
-    position: [7, 0, 5],
+    position: [5.6, 0, 3.25],
     keys: {
       up: 'KeyI',
       down: 'KeyK',
@@ -225,6 +303,7 @@ function createPlayer(config, index, name, color = config.color) {
     color: playerColor,
     mesh: group,
     keys: config.keys,
+    ready: false,
     speed: 5,
     speedMultiplier: 1,
     carriedCone: null,
@@ -421,6 +500,7 @@ function interact(player) {
 
       player.baseCones.push(cone);
       player.carriedCone = null;
+      player.speedMultiplier = 1;
 
       updateBaseCones(player);
       updateScores();
@@ -478,7 +558,10 @@ function interact(player) {
     // Heavy cones speed up, light cones slow down
     player.speedMultiplier = closestCone.userData.speedMultiplier;
 
-    scene.remove(closestCone);
+    // Show the cone floating above the player's head
+    scene.add(closestCone);
+    closestCone.scale.setScalar(0.8);
+    closestCone.rotation.set(0, 0, 0);
 
     // Update the stolen-from player's base
     if (sourcePlayer) {
@@ -497,6 +580,8 @@ function updateBaseCones(player) {
 
     scene.add(cone);
     cone.material.color.setHex(player.color);
+    cone.scale.setScalar(1);
+    cone.rotation.set(0, 0, 0);
 
     const angle = index * 1.2;
 
@@ -556,13 +641,14 @@ function movePlayer(player, delta) {
   );
 
   // Keep carried cone above player
+    // Carried cone floats above the head, bobbing and spinning
   if (player.carriedCone) {
-
-    const offset = new THREE.Vector3(0, 2, 0);
-
-    player.carriedCone.position.copy(
-      player.mesh.position
-    ).add(offset);
+    player.carriedCone.position.set(
+      player.mesh.position.x,
+      2.6 + Math.sin(clock.elapsedTime * 5) * 0.12,
+      player.mesh.position.z
+    );
+    player.carriedCone.rotation.y += 0.05;
   }
 }
 
@@ -659,6 +745,42 @@ function startCountdown() {
 
 // 14. END GAME AND PODIUM
 
+// CONFETTI
+
+let confettiTimer = null;
+let confettiFrame = null;
+
+const playerHex = player => `#${player.color.toString(16).padStart(6, '0')}`;
+
+// Dark or white text, whichever reads better on the player's color
+function textClassFor(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? 'text-dark' : 'text-white';
+}
+
+function launchConfetti(accent, big = false) {
+  const colors = [accent, accent, '#ff8c32', '#ffd447', '#ff6fa8', '#6aa8ff', '#5fd9b0', '#ffffff'];
+
+  // Big burst from the middle
+  confetti({ particleCount: big ? 160 : 90, spread: 100, startVelocity: 45, origin: { x: 0.5, y: 0.65 }, colors });
+
+  // Then streams from both sides
+  const end = Date.now() + (big ? 3500 : 1800);
+  (function frame() {
+    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.75 }, colors });
+    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.75 }, colors });
+    if (Date.now() < end) confettiFrame = requestAnimationFrame(frame);
+  })();
+}
+
+function clearConfetti() {
+  clearTimeout(confettiTimer);
+  cancelAnimationFrame(confettiFrame);
+  confetti.reset();
+}
+
+// 14. END GAME AND PODIUM
+
 function endGame(winner = null) {
 
   if (gameOver) return;
@@ -680,6 +802,9 @@ function endGame(winner = null) {
 
   const podium = document.querySelector('#podium');
   const podiumContent = document.querySelector('#podium-content');
+  const title = podium.querySelector('h1');
+  const subtitle = podium.querySelector('#podium-subtitle');
+  const trophy = podium.querySelector('#podium-trophy');
 
   const medals = ['🥇', '🥈', '🥉'];
 
@@ -688,28 +813,61 @@ function endGame(winner = null) {
     ? [...players].sort((a, b) => b.roundWins - a.roundWins || b.baseCones.length - a.baseCones.length)
     : rankings;
 
-  podiumContent.innerHTML = displayRankings.map((player, index) => `
-  <div class="card text-center rank rank-${index + 1}">
-    <div class="card-body">
-      <h2 class="h5">${medals[index]} ${index + 1} ${matchWinner ? 'OVERALL' : 'ROUND'}</h2>
-      <h3 class="h4">${escapeHtml(player.name)}</h3>
-      <p class="mb-0">${matchWinner ? player.roundWins + ' ROUND WINS' : player.baseCones.length + ' CONES'}</p>
-    </div>
-  </div>
-`).join('');
+  // Rank order in the data; Bootstrap's order-* puts 1st in the middle
+  const PODIUM_ORDER   = ['order-2', 'order-1', 'order-3'];
+  const PODIUM_HEIGHTS = ['h-100', 'h-75', 'h-50'];
+  const RISE_DELAYS    = [1200, 700, 300]; // 3rd rises first, the winner last
+
+  podiumContent.innerHTML = displayRankings.map((player, index) => {
+    const hex = playerHex(player);
+    const detail = matchWinner
+      ? `${player.roundWins} round win${player.roundWins === 1 ? '' : 's'}`
+      : `${player.baseCones.length} cone${player.baseCones.length === 1 ? '' : 's'}`;
+
+    return `
+      <div class="col-4 h-100 d-flex align-items-end podium-step podium-step-${index + 1} ${PODIUM_ORDER[index]}"
+           style="--delay: ${RISE_DELAYS[index]}ms">
+        <div class="card w-100 ${PODIUM_HEIGHTS[index]} rounded-top-4 rounded-bottom-0 shadow
+                    ${index === 0 ? 'border border-4 border-warning' : 'border-0'} ${textClassFor(hex)}"
+             style="background: ${hex}">
+          <div class="card-body p-2 d-flex flex-column align-items-center justify-content-center gap-1">
+            <span class="podium-medal fs-1 lh-1">${medals[index]}</span>
+            <div class="fw-bolder w-100 text-truncate">${escapeHtml(player.name)}</div>
+            <div class="small fw-semibold opacity-75">${detail}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const series = players.map(player => `${player.name} ${player.roundWins}`).join(' : ');
 
   if (matchWinner) {
     matchComplete = true;
-    podium.querySelector('h1').textContent = `${matchWinner.name} WINS THE MATCH!`;
+    title.textContent = `${matchWinner.name} WINS THE MATCH!`;
+    subtitle.textContent = `Final series: ${series}`;
+    trophy.textContent = '🏆';
     document.querySelector('#restart').textContent = 'BACK TO LOBBY';
     completeCurrentRoom(displayRankings, matchWinner);
   } else if (roundLeader) {
-    podium.querySelector('h1').textContent =
-      `${roundLeader.name} WINS ROUND ${matchRound}!`;
+    title.textContent = `${roundLeader.name} WINS ROUND ${matchRound}!`;
+    subtitle.textContent = `Series: ${series}`;
+    trophy.textContent = '🎉';
     document.querySelector('#restart').textContent = `START ROUND ${matchRound + 1}`;
   } else {
-    podium.querySelector('h1').textContent = `ROUND ${matchRound} TIED!`;
+    title.textContent = `ROUND ${matchRound} TIED!`;
+    subtitle.textContent = 'Nobody takes the cones this time.';
+    trophy.textContent = '🤝';
     document.querySelector('#restart').textContent = `REPLAY ROUND ${matchRound}`;
+  }
+
+  // Confetti pops when the winner's step lands
+  clearConfetti();
+  const celebrated = matchWinner ?? roundLeader;
+  if (celebrated) {
+    confettiTimer = setTimeout(
+      () => launchConfetti(playerHex(celebrated), Boolean(matchWinner)),
+      1200
+    );
   }
 
   podium.classList.remove('hidden');
@@ -825,6 +983,9 @@ function renderLobby() {
 
           <form class="join-room-form row g-2 align-items-center bg-warning-subtle rounded-4 p-2 mx-0"
                 data-room-id="${escapeHtml(room.id)}">
+                <div class="col-12">
+                ${colorPicker('playerColor', `join-${room.id}`, room.players.map(getPlayerColor))}
+                </div>
             <div class="col-12 col-sm">
               <input name="playerName" class="form-control rounded-pill border-2" maxlength="16"
                      placeholder="Username to join"
@@ -833,11 +994,6 @@ function renderLobby() {
             <div class="col-12 col-sm">
               <input name="avatar" type="file" accept="image/*" class="form-control rounded-pill border-2"
                      aria-label="Optional avatar image">
-            </div>
-            <div class="col-auto">
-              <input name="playerColor" type="color" value="${defaultPlayerColor(room.players)}"
-                     class="form-control form-control-color rounded-pill border-2"
-                     aria-label="Choose your player and cone color">
             </div>
             <div class="col-auto">
               <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4 btn-pop"
@@ -963,14 +1119,6 @@ function getPlayerColor(player, index) {
   }
   const color = playerConfigs[index % playerConfigs.length].color;
   return `#${color.toString(16).padStart(6, '0')}`;
-}
-
-function defaultPlayerColor(roomPlayers) {
-  const usedColors = new Set(roomPlayers.map((player, index) => getPlayerColor(player, index)));
-  const available = playerConfigs
-    .map(config => `#${config.color.toString(16).padStart(6, '0')}`)
-    .find(color => !usedColors.has(color));
-  return available ?? '#ff5252';
 }
 
 function validateColor(value) {
@@ -1150,7 +1298,81 @@ roomList.addEventListener('change', event => {
   });
 });
 
+// READY SCREEN
+
+const KEY_LABELS = {
+  ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: 'Enter'
+};
+
+function keyLabel(code) {
+  return KEY_LABELS[code] ?? code.replace(/^Key/, '');
+}
+
+function controlsMarkup(keys) {
+  const kbd = code => `<kbd>${keyLabel(code)}</kbd>`;
+  return `<span class="me-3">Move ${[keys.up, keys.left, keys.down, keys.right].map(kbd).join(' ')}</span>` +
+         `<span>Action ${kbd(keys.action)}</span>`;
+}
+
+function renderReadyScreen() {
+  document.querySelector('#ready-players').innerHTML = players.map((player, index) => {
+    const hex = `#${player.color.toString(16).padStart(6, '0')}`;
+    return `
+      <div class="d-flex align-items-center gap-3 p-2 mb-2 rounded-4 bg-body-tertiary border border-2">
+        <span class="player-color-swatch" style="--player-color: ${hex}; width: 28px; height: 28px; flex-basis: 28px"></span>
+        <div class="flex-grow-1">
+          <div class="fw-bold">${escapeHtml(player.name)}
+            <span class="text-body-secondary fw-normal small">· Player ${index + 1}</span>
+          </div>
+          <div class="small text-body-secondary">${controlsMarkup(player.keys)}</div>
+        </div>
+        <button type="button" class="ready-toggle btn fw-bold rounded-pill ${player.ready ? 'btn-success' : 'btn-outline-warning'}"
+                data-player-index="${index}">${player.ready ? 'READY ✓' : "I'M READY"}</button>
+      </div>`;
+  }).join('');
+
+  const waiting = players.filter(player => !player.ready);
+  document.querySelector('#ready-status').textContent = waiting.length
+    ? `Waiting for ${waiting.map(player => player.name).join(', ')}…`
+    : 'Starting…';
+}
+
+let readyLocked = false;
+
+function showReadyScreen() {
+  readyLocked = false;
+  players.forEach(player => { player.ready = false; });
+  renderReadyScreen();
+  document.querySelector('#ready-screen').classList.remove('hidden');
+}
+
+document.querySelector('#ready-players').addEventListener('click', event => {
+  const button = event.target.closest('.ready-toggle');
+  if (!button || readyLocked) return;
+
+  const player = players[Number(button.dataset.playerIndex)];
+  player.ready = !player.ready;
+  renderReadyScreen();
+
+  if (players.every(item => item.ready)) {
+    readyLocked = true;
+    hideWithAnimation(document.querySelector('#ready-screen')).then(beginRound);
+  }
+});
+
+function hideWithAnimation(element, duration = 300) {
+  return new Promise(resolve => {
+    element.classList.add('leaving');
+    setTimeout(() => {
+      element.classList.add('hidden');
+      element.classList.remove('leaving');
+      resolve();
+    }, duration);
+  });
+}
+
 function startMatch(roomId) {
+  if (players.length) return;
   const rooms = readRooms();
   const room = rooms.find(item => item.id === roomId && item.status === 'waiting');
   if (!room) throw new Error('That room is no longer available.');
@@ -1184,19 +1406,14 @@ function startMatch(roomId) {
     createPlayerBase(player);
   });
 
-  document.querySelector('#controls-text').textContent = players
-  .map((player, index) => `P${index + 1}: ${Object.entries(player.keys).map(([action, key]) => `${action.toUpperCase()} ${key.replace('Key', '')}`).join(' / ')}`)
-  .join('  |  ');
-
-  document.querySelector('#instructions').firstChild.textContent = players
-    .map((player, index) => `P${index + 1}: ${Object.entries(player.keys).map(([action, key]) => `${action.toUpperCase()} ${key.replace('Key', '')}`).join(' / ')}`)
+  document.querySelector('#controls-text').innerHTML = players
+    .map(player => `${escapeHtml(player.name)}: ${controlsMarkup(player.keys)}`)
     .join('  |  ');
-  document.querySelector('#lobby').classList.add('hidden');
-  document.querySelector('#game-hud').classList.remove('hidden');
+
   updateScores();
   updateMatchStatus();
   showLobbyMessage('');
-  beginRound();
+  hideWithAnimation(document.querySelector('#lobby')).then(showReadyScreen);
 }
 
 function disposeCone(cone) {
@@ -1206,10 +1423,11 @@ function disposeCone(cone) {
 }
 
 function beginRound() {
+  clearConfetti();
   gameOver = false;
   gameStarted = false;
   countdown = 3;
-  gameTime = 45;
+  gameTime = 60;
   matchElapsed = 0;
   nextConeShuffleAt = 7;
   timerElement.textContent = gameTime;
@@ -1313,13 +1531,16 @@ async function saveCompletedMatchToCloud(roomName, totalRounds, finalPlayers, wi
   if (participantError) throw participantError;
 }
 
-document.querySelector('#leave-match').addEventListener('click', () => {
+function leaveMatch() {
   if (!currentRoom) return;
   withLobbyError(() => {
     writeRooms(readRooms().filter(room => room.id !== currentRoom.id));
     window.location.reload();
   });
-});
+}
+
+document.querySelector('#leave-match').addEventListener('click', leaveMatch);
+document.querySelector('#ready-leave').addEventListener('click', leaveMatch);
 
 window.addEventListener('storage', event => {
   if (event.key === ROOMS_KEY || event.key === HISTORY_KEY) renderLobby();
