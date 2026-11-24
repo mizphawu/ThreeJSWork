@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cone Clash | Matches</title>
+</head>
+<body class="bg-body-tertiary" data-admin-table="matches">
+    <main class="container-fluid min-vh-100 p-3 p-md-4">
+        <div id="adminNav" class="mb-4"></div>
+        <div class="admin-content">
+            <div id="adminMessage" class="alert d-none" role="alert"></div>
+            <section class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-3 p-md-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                    <h1 class="h3 fw-bold mb-0" id="pageTitle">Matches</h1>
+                    <button type="button" class="btn btn-warning rounded-pill px-4" id="refreshButton">
+                        Refresh
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered border-secondary-subtle align-middle fs-6">
+                        <thead class="table-light text-center" id="tableHead"></thead>
+                        <tbody class="text-center" id="tableBody">
+                            <tr><td class="text-secondary py-4">Loading matches...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center">
+                    <button type="button" class="btn btn-outline-primary rounded-pill px-4" id="loadMoreButton" hidden>
+                        Load more
+                    </button>
+                </div>
+            </div>
+            </section>
+        </div>
+    </main>
+    <script type="module" src="./src/admin/adminTablePage.js"></script>
+</body>
+</html>
