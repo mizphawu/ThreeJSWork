@@ -52,7 +52,7 @@ const MENU_HTML = `
           <h1 class="display-3 fw-bolder text-uppercase mb-1 title-cute">
             <span class="title-cone">Cone</span> <span class="title-clash">Clash</span>
           </h1>
-          <p class="text-body-secondary fw-medium mb-0">Grab. Dash. Steal.</p>
+          <p class="text-body-secondary fw-medium mb-0">1, 2, 3... Cone It!</p>
         </div>
 
         <div class="card-body p-4">
